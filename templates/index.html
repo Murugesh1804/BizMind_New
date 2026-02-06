@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BizMind - AI Business Location Decision Support</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-brain me-2"></i>BizMind
+            </a>
+            <span class="navbar-text text-white">
+                AI Business Location Decision Support
+            </span>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero-section">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-lg-6">
+                    <h1 class="display-4 fw-bold mb-4">Make Smarter Business Location Decisions</h1>
+                    <p class="lead mb-4">
+                        Leverage AI-powered insights to analyze market opportunities, 
+                        understand competition, and make data-driven decisions for your business location.
+                    </p>
+                    <div class="features-list">
+                        <div class="feature-item">
+                            <i class="fas fa-chart-line text-primary"></i>
+                            <span>Market Analysis</span>
+                        </div>
+                        <div class="feature-item">
+                            <i class="fas fa-users text-primary"></i>
+                            <span>Competitor Insights</span>
+                        </div>
+                        <div class="feature-item">
+                            <i class="fas fa-robot text-primary"></i>
+                            <span>AI-Powered Recommendations</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <!-- Input Form Card -->
+                    <div class="card shadow-lg">
+                        <div class="card-body p-4">
+                            <h3 class="card-title mb-4">Analyze Your Business Location</h3>
+                            
+                            <form id="analysisForm" action="/analyze" method="POST">
+                                <!-- Business Name -->
+                                <div class="mb-3">
+                                    <label for="businessName" class="form-label">
+                                        <i class="fas fa-store me-2"></i>Business Name
+                                    </label>
+                                    <input 
+                                        type="text" 
+                                        class="form-control" 
+                                        id="businessName" 
+                                        name="business_name"
+                                        placeholder="e.g., Joe's Coffee Shop"
+                                        required
+                                    >
+                                </div>
+
+                                <!-- Business Type -->
+                                <div class="mb-3">
+                                    <label for="businessType" class="form-label">
+                                        <i class="fas fa-tag me-2"></i>Business Type
+                                    </label>
+                                    <input 
+                                        type="text" 
+                                        class="form-control" 
+                                        id="businessType" 
+                                        name="business_type"
+                                        placeholder="e.g., cafe, restaurant, gym, salon"
+                                        required
+                                    >
+                                    <small class="form-text text-muted">
+                                        Enter the type of business you want to analyze
+                                    </small>
+                                </div>
+
+                                <!-- Location -->
+                                <div class="mb-3">
+                                    <label for="location" class="form-label">
+                                        <i class="fas fa-map-marker-alt me-2"></i>Target Location
+                                    </label>
+                                    <input 
+                                        type="text" 
+                                        class="form-control" 
+                                        id="location" 
+                                        name="location"
+                                        placeholder="e.g., Andheri West, Mumbai"
+                                        required
+                                    >
+                                    <small class="form-text text-muted">
+                                        Enter city, neighborhood, or full address
+                                    </small>
+                                </div>
+
+                                <!-- Owner Type -->
+                                <div class="mb-4">
+                                    <label class="form-label">
+                                        <i class="fas fa-user me-2"></i>Owner Type
+                                    </label>
+                                    <div class="form-check">
+                                        <input 
+                                            class="form-check-input" 
+                                            type="radio" 
+                                            name="owner_type" 
+                                            id="ownerNew" 
+                                            value="new"
+                                            checked
+                                        >
+                                        <label class="form-check-label" for="ownerNew">
+                                            New Business Owner
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input 
+                                            class="form-check-input" 
+                                            type="radio" 
+                                            name="owner_type" 
+                                            id="ownerExisting" 
+                                            value="existing"
+                                        >
+                                        <label class="form-check-label" for="ownerExisting">
+                                            Existing Business Owner
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <!-- Submit Button -->
+                                <button type="submit" class="btn btn-primary btn-lg w-100">
+                                    <i class="fas fa-search me-2"></i>Analyze Location
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works Section -->
+    <section class="how-it-works-section">
+        <div class="container">
+            <h2 class="text-center mb-5">How It Works</h2>
+            <div class="row">
+                <div class="col-md-3 text-center">
+                    <div class="step-icon">
+                        <i class="fas fa-edit"></i>
+                    </div>
+                    <h5>1. Enter Details</h5>
+                    <p>Provide your business information and target location</p>
+                </div>
+                <div class="col-md-3 text-center">
+                    <div class="step-icon">
+                        <i class="fas fa-database"></i>
+                    </div>
+                    <h5>2. Data Collection</h5>
+                    <p>We analyze competitors, reviews, and market data</p>
+                </div>
+                <div class="col-md-3 text-center">
+                    <div class="step-icon">
+                        <i class="fas fa-brain"></i>
+                    </div>
+                    <h5>3. AI Analysis</h5>
+                    <p>Advanced AI generates insights and recommendations</p>
+                </div>
+                <div class="col-md-3 text-center">
+                    <div class="step-icon">
+                        <i class="fas fa-chart-bar"></i>
+                    </div>
+                    <h5>4. Get Insights</h5>
+                    <p>Receive actionable insights and success score</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container text-center">
+            <p class="mb-0">
+                &copy; 2024 BizMind - Final Year Engineering Project
+            </p>
+            <small class="text-muted">
+                Powered by Google Maps API, LLMLingua, and OpenRouter
+            </small>
+        </div>
+    </footer>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Custom JS -->
+    <script>
+        // Form submission handler
+        document.getElementById('analysisForm').addEventListener('submit', function(e) {
+            // Show loading state
+            const submitBtn = this.querySelector('button[type="submit"]');
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Analyzing...';
+            submitBtn.disabled = true;
+        });
+    </script>
+</body>
+</html>
