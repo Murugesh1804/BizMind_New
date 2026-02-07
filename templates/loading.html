@@ -1,74 +1,211 @@
 <!DOCTYPE html>
-<html lang="en">
+<html class="light" lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
     <title>Analyzing... - BizMind</title>
 
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+        rel="stylesheet" />
 
-    <!-- Custom CSS -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#13a4ec",
+                        "background-light": "#FBFBFB",
+                        "background-dark": "#101c22",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                },
+            },
+        }
+    </script>
 
-    <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @keyframes pulse-glow {
+
+            0%,
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: 0.5;
+                transform: scale(1.05);
+            }
+        }
+
+        .pulse-glow {
+            animation: pulse-glow 2s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .animate-spin-slow {
+            animation: spin 3s linear infinite;
+        }
+    </style>
 </head>
 
-<body class="loading-page">
-    <div class="loading-container">
-        <div class="text-center">
-            <!-- Animated Icon -->
-            <div class="loading-icon mb-4">
-                <i class="fas fa-brain fa-5x text-primary"></i>
-            </div>
-
-            <!-- Loading Text -->
-            <h2 class="mb-3">Analyzing Your Business Location</h2>
-            <p class="text-muted mb-4">Please wait while we gather insights...</p>
-
-            <!-- Progress Steps -->
-            <div class="loading-steps">
-                <div class="step active">
-                    <i class="fas fa-map-marker-alt"></i>
-                    <span>Fetching Location Data</span>
+<body
+    class="font-display bg-background-light dark:bg-background-dark text-[#111618] dark:text-white min-h-screen flex items-center justify-center">
+    <div class="max-w-2xl mx-auto px-6 text-center">
+        <!-- Animated Icon -->
+        <div class="mb-8 flex justify-center">
+            <div class="relative">
+                <div class="absolute inset-0 bg-primary/20 rounded-full blur-2xl pulse-glow"></div>
+                <div class="relative bg-primary/10 p-8 rounded-full">
+                    <span
+                        class="material-symbols-outlined text-primary !text-[80px] animate-spin-slow">psychology</span>
                 </div>
-                <div class="step">
-                    <i class="fas fa-users"></i>
-                    <span>Analyzing Competitors</span>
-                </div>
-                <div class="step">
-                    <i class="fas fa-comments"></i>
-                    <span>Processing Reviews</span>
-                </div>
-                <div class="step">
-                    <i class="fas fa-robot"></i>
-                    <span>Generating AI Insights</span>
-                </div>
-            </div>
-
-            <!-- Spinner -->
-            <div class="spinner-border text-primary mt-4" role="status">
-                <span class="visually-hidden">Loading...</span>
             </div>
         </div>
-    </div>
 
-    <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+        <!-- Loading Text -->
+        <h2 class="text-3xl md:text-4xl font-extrabold mb-3 text-gray-900 dark:text-white">
+            Analyzing Your Business Location
+        </h2>
+        <p class="text-lg text-gray-600 dark:text-gray-400 mb-12">
+            Please wait while we gather comprehensive market insights...
+        </p>
+
+        <!-- Progress Steps -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-12">
+            <div
+                class="step bg-white dark:bg-gray-900 rounded-xl p-6 border border-gray-100 dark:border-gray-800 transition-all duration-300">
+                <div class="flex items-center gap-4">
+                    <div class="bg-primary/10 p-3 rounded-lg">
+                        <span class="material-symbols-outlined text-primary !text-2xl">map</span>
+                    </div>
+                    <div class="text-left">
+                        <h3 class="font-bold text-gray-900 dark:text-white">Location Data</h3>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Fetching geospatial information</p>
+                    </div>
+                </div>
+            </div>
+
+            <div
+                class="step bg-white dark:bg-gray-900 rounded-xl p-6 border border-gray-100 dark:border-gray-800 transition-all duration-300">
+                <div class="flex items-center gap-4">
+                    <div class="bg-gray-100 dark:bg-gray-800 p-3 rounded-lg">
+                        <span class="material-symbols-outlined text-gray-400 !text-2xl">group</span>
+                    </div>
+                    <div class="text-left">
+                        <h3 class="font-bold text-gray-400">Competitors</h3>
+                        <p class="text-sm text-gray-400">Analyzing market saturation</p>
+                    </div>
+                </div>
+            </div>
+
+            <div
+                class="step bg-white dark:bg-gray-900 rounded-xl p-6 border border-gray-100 dark:border-gray-800 transition-all duration-300">
+                <div class="flex items-center gap-4">
+                    <div class="bg-gray-100 dark:bg-gray-800 p-3 rounded-lg">
+                        <span class="material-symbols-outlined text-gray-400 !text-2xl">chat_bubble</span>
+                    </div>
+                    <div class="text-left">
+                        <h3 class="font-bold text-gray-400">Reviews</h3>
+                        <p class="text-sm text-gray-400">Processing customer sentiment</p>
+                    </div>
+                </div>
+            </div>
+
+            <div
+                class="step bg-white dark:bg-gray-900 rounded-xl p-6 border border-gray-100 dark:border-gray-800 transition-all duration-300">
+                <div class="flex items-center gap-4">
+                    <div class="bg-gray-100 dark:bg-gray-800 p-3 rounded-lg">
+                        <span class="material-symbols-outlined text-gray-400 !text-2xl">smart_toy</span>
+                    </div>
+                    <div class="text-left">
+                        <h3 class="font-bold text-gray-400">AI Insights</h3>
+                        <p class="text-sm text-gray-400">Generating recommendations</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="w-full bg-gray-200 dark:bg-gray-800 rounded-full h-2 overflow-hidden">
+            <div class="bg-gradient-to-r from-primary to-blue-400 h-full rounded-full animate-pulse" style="width: 60%">
+            </div>
+        </div>
+        <p class="text-xs text-gray-400 mt-3 uppercase tracking-widest font-bold">This may take 10-15 seconds</p>
+    </div>
 
     <!-- Loading Animation Script -->
     <script>
-        // Animate loading steps
         const steps = document.querySelectorAll('.step');
         let currentStep = 0;
 
+        function activateStep(index) {
+            steps.forEach((step, i) => {
+                const icon = step.querySelector('.bg-primary\\/10, .bg-gray-100');
+                const iconSymbol = step.querySelector('.material-symbols-outlined');
+                const title = step.querySelector('h3');
+                const desc = step.querySelector('p');
+
+                if (i === index) {
+                    // Active state
+                    icon.classList.remove('bg-gray-100', 'dark:bg-gray-800');
+                    icon.classList.add('bg-primary/10');
+                    iconSymbol.classList.remove('text-gray-400');
+                    iconSymbol.classList.add('text-primary');
+                    title.classList.remove('text-gray-400');
+                    title.classList.add('text-gray-900', 'dark:text-white');
+                    desc.classList.remove('text-gray-400');
+                    desc.classList.add('text-gray-500', 'dark:text-gray-400');
+                    step.classList.add('ring-2', 'ring-primary/20');
+                } else if (i < index) {
+                    // Completed state
+                    icon.classList.remove('bg-gray-100', 'dark:bg-gray-800', 'bg-primary/10');
+                    icon.classList.add('bg-emerald-100', 'dark:bg-emerald-900/30');
+                    iconSymbol.classList.remove('text-gray-400', 'text-primary');
+                    iconSymbol.classList.add('text-emerald-600');
+                    title.classList.remove('text-gray-400');
+                    title.classList.add('text-emerald-600');
+                    desc.classList.remove('text-gray-400');
+                    desc.classList.add('text-emerald-500');
+                    step.classList.remove('ring-2', 'ring-primary/20');
+                } else {
+                    // Inactive state
+                    icon.classList.remove('bg-primary/10', 'bg-emerald-100', 'dark:bg-emerald-900/30');
+                    icon.classList.add('bg-gray-100', 'dark:bg-gray-800');
+                    iconSymbol.classList.remove('text-primary', 'text-emerald-600');
+                    iconSymbol.classList.add('text-gray-400');
+                    title.classList.remove('text-gray-900', 'dark:text-white', 'text-emerald-600');
+                    title.classList.add('text-gray-400');
+                    desc.classList.remove('text-gray-500', 'dark:text-gray-400', 'text-emerald-500');
+                    desc.classList.add('text-gray-400');
+                    step.classList.remove('ring-2', 'ring-primary/20');
+                }
+            });
+        }
+
+        // Initial state
+        activateStep(0);
+
+        // Animate through steps
         setInterval(() => {
-            steps[currentStep].classList.remove('active');
             currentStep = (currentStep + 1) % steps.length;
-            steps[currentStep].classList.add('active');
-        }, 2000);
+            activateStep(currentStep);
+        }, 2500);
     </script>
 </body>
 

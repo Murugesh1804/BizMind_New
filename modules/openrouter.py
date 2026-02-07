@@ -7,6 +7,7 @@ Groq provides fast, high-quality AI responses for business insights.
 
 from groq import Groq
 import os
+import re
 
 
 class OpenRouterClient:
@@ -48,7 +49,7 @@ class OpenRouterClient:
                 features, compressed_reviews, competitors
             )
             
-            # Call Groq API (print statement moved to _call_api)
+            # Call Groq API
             response = self._call_api(prompt)
             
             # Parse response
@@ -92,29 +93,35 @@ class OpenRouterClient:
 **Top Competitors:**
 {self._format_competitors(competitors[:5])}
 
-**Task:** Provide a structured analysis with the following sections:
+**Task:** Provide a structured analysis with the following sections. Use EXACTLY these headers:
 
-1. **Customer Sentiment Insights** (2-3 bullet points)
-   - What do customers value most?
-   - Common complaints or gaps in service?
+### Customer Sentiment Insights
+- What do customers value most?
+- Common complaints or gaps in service?
+- Key sentiment patterns
 
-2. **Market Opportunity Analysis** (2-3 bullet points)
-   - Is there demand for this business type?
-   - What opportunities exist?
+### Market Opportunity Analysis
+- Is there demand for this business type?
+- What opportunities exist?
+- Market gaps to exploit
 
-3. **Pricing Strategy** (1-2 sentences)
-   - Suggested price range
-   - Positioning (budget/mid-range/premium)
+### Pricing Strategy
+- Suggested price range
+- Positioning (budget/mid-range/premium)
+- Competitive pricing insights
 
-4. **Risk Factors** (2-3 bullet points)
-   - Key challenges
-   - Competition concerns
+### Risk Factors
+- Key challenges
+- Competition concerns
+- Market saturation risks
 
-5. **Strategic Recommendations** (3-4 bullet points)
-   - Specific actionable advice
-   - Differentiation strategies
+### Strategic Recommendations
+- Specific actionable advice
+- Differentiation strategies
+- Implementation priorities
+- Quick wins
 
-Keep responses concise, professional, and actionable. Use bullet points."""
+Keep each section concise (2-4 bullet points). Use bullet points with clear, actionable insights."""
 
         return prompt
     
@@ -146,7 +153,7 @@ Keep responses concise, professional, and actionable. Use bullet points."""
                 }
             ],
             temperature=0.7,
-            max_tokens=1000
+            max_tokens=1500
         )
         
         return response.choices[0].message.content
@@ -161,47 +168,153 @@ Keep responses concise, professional, and actionable. Use bullet points."""
         Returns:
             dict: Structured insights
         """
-        # Simple parsing - extract sections
+        print("\n[DEBUG] Full LLM Response:")
+        print("=" * 80)
+        print(response_text)
+        print("=" * 80)
+        
+        # Extract sections using improved method
         insights = {
-            'sentiment': self._extract_section(response_text, "Customer Sentiment"),
-            'opportunity': self._extract_section(response_text, "Market Opportunity"),
-            'pricing': self._extract_section(response_text, "Pricing Strategy"),
-            'risks': self._extract_section(response_text, "Risk Factors"),
-            'recommendations': self._extract_section(response_text, "Strategic Recommendations"),
+            'sentiment': self._extract_section_improved(response_text, "Customer Sentiment"),
+            'opportunity': self._extract_section_improved(response_text, "Market Opportunity"),
+            'pricing': self._extract_section_improved(response_text, "Pricing Strategy"),
+            'risks': self._extract_section_improved(response_text, "Risk Factors"),
+            'recommendations': self._extract_section_improved(response_text, "Strategic Recommendations"),
             'full_analysis': response_text
         }
         
+        # Debug: Print extracted sections
+        print("\n[DEBUG] Extracted Sections:")
+        for key, value in insights.items():
+            if key != 'full_analysis':
+                print(f"\n{key.upper()}:")
+                print(value[:300] if len(value) > 300 else value)
+        
         return insights
     
-    def _extract_section(self, text, section_name):
+    def _extract_section_improved(self, text, section_name):
         """
-        Extract a specific section from the response
+        Improved section extraction with better pattern matching
         
         Args:
             text (str): Full response text
             section_name (str): Section to extract
             
         Returns:
-            str: Extracted section content
+            str: Extracted section content with proper formatting
         """
-        # Find section by header
-        lines = text.split('\n')
-        section_lines = []
-        in_section = False
+        # Define header patterns for each section
+        patterns = {
+            "Customer Sentiment": [
+                r'###\s*Customer Sentiment',
+                r'\*\*Customer Sentiment',
+                r'^\*?\*?1[\.\)]\s*\*?\*?.*Customer Sentiment',
+                r'^Customer Sentiment'
+            ],
+            "Market Opportunity": [
+                r'###\s*Market Opportunity',
+                r'\*\*Market Opportunity',
+                r'^\*?\*?2[\.\)]\s*\*?\*?.*Market Opportunity',
+                r'^Market Opportunity'
+            ],
+            "Pricing Strategy": [
+                r'###\s*Pricing Strategy',
+                r'\*\*Pricing Strategy',
+                r'^\*?\*?3[\.\)]\s*\*?\*?.*Pricing',
+                r'^Pricing Strategy'
+            ],
+            "Risk Factors": [
+                r'###\s*Risk',
+                r'\*\*Risk',
+                r'^\*?\*?4[\.\)]\s*\*?\*?.*Risk',
+                r'^Risk Factors'
+            ],
+            "Strategic Recommendations": [
+                r'###\s*Strategic Recommendations',
+                r'\*\*Strategic Recommendations',
+                r'^\*?\*?5[\.\)]\s*\*?\*?.*Strategic',
+                r'^Strategic Recommendations'
+            ]
+        }
         
-        for line in lines:
-            if section_name.lower() in line.lower():
-                in_section = True
+        section_patterns = patterns.get(section_name, [])
+        if not section_patterns:
+            return "No data available"
+        
+        lines = text.split('\n')
+        
+        # Find the start of this section
+        start_idx = None
+        for i, line in enumerate(lines):
+            stripped = line.strip()
+            for pattern in section_patterns:
+                if re.search(pattern, stripped, re.IGNORECASE | re.MULTILINE):
+                    start_idx = i + 1  # Start from next line
+                    break
+            if start_idx is not None:
+                break
+        
+        if start_idx is None:
+            return "No data available"
+        
+        # Find the end of this section (next section header or end of text)
+        end_idx = len(lines)
+        all_patterns = []
+        for plist in patterns.values():
+            all_patterns.extend(plist)
+        
+        for i in range(start_idx, len(lines)):
+            stripped = lines[i].strip()
+            if not stripped:
+                continue
+                
+            # Check if this is a new section header
+            for pattern in all_patterns:
+                if re.search(pattern, stripped, re.IGNORECASE | re.MULTILINE):
+                    # Make sure it's not the same section
+                    is_same = False
+                    for our_pattern in section_patterns:
+                        if re.search(our_pattern, stripped, re.IGNORECASE | re.MULTILINE):
+                            is_same = True
+                            break
+                    
+                    if not is_same:
+                        end_idx = i
+                        break
+            
+            if end_idx < len(lines):
+                break
+        
+        # Extract and clean the content
+        section_lines = []
+        for i in range(start_idx, end_idx):
+            line = lines[i].strip()
+            
+            # Skip empty lines
+            if not line:
                 continue
             
-            if in_section:
-                # Stop at next numbered section or empty line after content
-                if line.strip() and (line.strip()[0].isdigit() and '. **' in line):
-                    break
-                if line.strip():
-                    section_lines.append(line.strip())
+            # Skip lines that are just markdown or formatting
+            if line in ['**', '###', '---', '***']:
+                continue
+            
+            # Clean up the line
+            # Remove leading asterisks from bullet points but keep the dash/bullet
+            cleaned_line = line
+            
+            # Normalize bullet points to use dash
+            if re.match(r'^[\*\-•]\s+', cleaned_line):
+                cleaned_line = re.sub(r'^[\*\-•]\s+', '- ', cleaned_line)
+            
+            section_lines.append(cleaned_line)
         
-        return '\n'.join(section_lines) if section_lines else "No data available"
+        result = '\n'.join(section_lines)
+        
+        # If no content found, return default message
+        if not result.strip():
+            return "No data available"
+        
+        return result
     
     def _get_fallback_insights(self):
         """
@@ -211,10 +324,10 @@ Keep responses concise, professional, and actionable. Use bullet points."""
             dict: Basic fallback insights
         """
         return {
-            'sentiment': "• Customer data analysis unavailable\n• Please check API configuration",
-            'opportunity': "• Market analysis unavailable\n• Manual research recommended",
-            'pricing': "Research local market rates for pricing guidance",
-            'risks': "• API connection failed\n• Manual analysis required",
-            'recommendations': "• Verify API keys\n• Check internet connection\n• Retry analysis",
+            'sentiment': "- Customer data analysis unavailable\n- Please check API configuration",
+            'opportunity': "- Market analysis unavailable\n- Manual research recommended",
+            'pricing': "- Research local market rates for pricing guidance",
+            'risks': "- API connection failed\n- Manual analysis required",
+            'recommendations': "- Verify API keys\n- Check internet connection\n- Retry analysis",
             'full_analysis': "AI analysis temporarily unavailable. Please check your API configuration."
         }

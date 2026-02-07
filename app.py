@@ -59,7 +59,16 @@ def analyze():
         business_name = request.form.get('business_name', '').strip()
         business_type = request.form.get('business_type', '').strip()
         location = request.form.get('location', '').strip()
+        latitude = request.form.get('latitude', '').strip()
+        longitude = request.form.get('longitude', '').strip()
         owner_type = request.form.get('owner_type', 'new')
+        radius = request.form.get('radius', '500').strip()  # Default 500m
+        
+        # Convert radius to int
+        try:
+            radius = int(radius)
+        except ValueError:
+            radius = 500  # Default to 500m if invalid
         
         # Validate input
         if not all([business_name, business_type, location]):
@@ -68,12 +77,35 @@ def analyze():
                 'message': 'Please fill in all required fields'
             }), 400
         
-        # Step 2: Fetch competitor data from Google Maps
+        # Step 2: Geocode location if coordinates not provided
+        if not latitude or not longitude:
+            print(f"[INFO] No coordinates provided, geocoding location: {location}")
+            coords = google_maps_client.geocode(location)
+            if coords:
+                latitude = coords['latitude']
+                longitude = coords['longitude']
+                print(f"[INFO] Geocoded to: {latitude}, {longitude}")
+            else:
+                print(f"[WARN] Geocoding failed, will search by location name only")
+        
+        # Step 3: Fetch competitor data from Google Maps
         print(f"[INFO] Fetching competitor data for: {business_type} in {location}")
-        competitors_data = google_maps_client.fetch_competitors(
-            business_type=business_type,
-            location=location
-        )
+        
+        # Pass coordinates if available for more precise search
+        if latitude and longitude:
+            print(f"[INFO] Using coordinates: {latitude}, {longitude} with {radius}m radius")
+            competitors_data = google_maps_client.fetch_competitors(
+                business_type=business_type,
+                location=location,
+                latitude=float(latitude),
+                longitude=float(longitude),
+                radius=radius
+            )
+        else:
+            competitors_data = google_maps_client.fetch_competitors(
+                business_type=business_type,
+                location=location
+            )
         
         if not competitors_data or len(competitors_data) == 0:
             return jsonify({
@@ -81,11 +113,11 @@ def analyze():
                 'message': 'Could not find competitor data for this location'
             }), 404
         
-        # Step 3: Feature engineering - calculate metrics
+        # Step 4: Feature engineering - calculate metrics
         print(f"[INFO] Engineering features from {len(competitors_data)} competitors")
         features = feature_engineer.calculate_features(competitors_data)
         
-        # Step 4: Compress review data using LLMLingua
+        # Step 5: Compress review data using LLMLingua
         print("[INFO] Compressing review data with LLMLingua")
         all_reviews = []
         for comp in competitors_data:
@@ -93,7 +125,7 @@ def analyze():
         
         compressed_reviews = compressor.compress_reviews(all_reviews)
         
-        # Step 5: Generate AI insights using OpenRouter
+        # Step 6: Generate AI insights using OpenRouter
         print("[INFO] Generating AI insights via OpenRouter")
         ai_insights = openrouter_client.generate_insights(
             business_name=business_name,
@@ -105,7 +137,7 @@ def analyze():
             competitors=competitors_data
         )
         
-        # Step 6: Prepare final response
+        # Step 7: Prepare final response
         response_data = {
             'business_name': business_name,
             'business_type': business_type,
