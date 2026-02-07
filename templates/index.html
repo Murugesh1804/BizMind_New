@@ -5,15 +5,16 @@
     <meta charset="utf-8" />
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
     <title>BizMind - AI-Driven Business Analysis</title>
-
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='css/images/fav.png') }}">
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&display=swap" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
         rel="stylesheet" />
 
-    <!-- Leaflet CSS for map -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Google Maps JavaScript API -->
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAJv4rLma7y1TtLml_wdvuTkBVMyDcbUl4&libraries=places"
+        defer></script>
 
     <script id="tailwind-config">
         tailwind.config = {
@@ -68,14 +69,22 @@
             <div class="flex items-center gap-2">
                 <img src="{{ url_for('static', filename='css/images/logo_new.png') }}" alt="Logo" width="150">
             </div>
-            <div class="hidden md:flex items-center gap-8">
-                <a class="text-sm font-semibold hover:text-primary transition-colors" href="#">Product</a>
-                <a class="text-sm font-semibold hover:text-primary transition-colors" href="#">Solutions</a>
-                <a class="text-sm font-semibold hover:text-primary transition-colors" href="#">Pricing</a>
-                <button
+            <div id="authMenu" class="hidden md:flex items-center gap-4">
+                <span id="userName" class="text-sm font-semibold text-gray-700 dark:text-gray-300"></span>
+                <a href="/history"
+                    class="text-sm font-semibold text-gray-700 dark:text-gray-300 hover:text-primary transition-colors">My
+                    History</a>
+                <button id="logoutBtn"
                     class="bg-gray-100 dark:bg-gray-800 px-5 py-2 rounded-full text-sm font-bold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all">
-                    Get Started
+                    Logout
                 </button>
+            </div>
+            <div id="guestMenu" class="hidden md:flex items-center gap-4">
+                <a href="/login" class="text-sm font-semibold hover:text-primary transition-colors">Login</a>
+                <a href="/register"
+                    class="bg-primary text-white px-5 py-2 rounded-full text-sm font-bold hover:bg-primary/90 transition-all">
+                    Get Started
+                </a>
             </div>
         </div>
     </nav>
@@ -196,9 +205,9 @@
                                         search
                                     </span>
 
-                                    <input id="selectedLocation"
+                                    <input id="searchInput"
                                         class="w-full bg-gray-50 dark:bg-gray-800 border-none rounded-lg pl-10 pr-4 py-3 focus:ring-2 focus:ring-primary text-gray-900 dark:text-white placeholder:text-gray-400"
-                                        placeholder="Click on map or use your location..." type="text" readonly />
+                                        placeholder="Search for a location..." type="text" />
                                 </div>
 
                                 <button type="button" id="useMyLocation"
@@ -206,6 +215,11 @@
                                     <span class="material-symbols-outlined !text-xl">my_location</span>
                                 </button>
                             </div>
+
+                            <!-- Selected location display -->
+                            <input id="selectedLocation"
+                                class="w-full bg-gray-50 dark:bg-gray-800 border-none rounded-lg px-4 py-2 text-sm text-gray-600 dark:text-gray-400"
+                                placeholder="No location selected" type="text" readonly />
 
                             <!-- Map BELOW input -->
                             <div
@@ -290,9 +304,6 @@
         </div>
     </footer>
 
-    <!-- Leaflet JS -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
     <!-- Custom JS -->
     <script>
         // Map variables
@@ -300,63 +311,114 @@
         let marker;
         let circle;
         let selectedLat, selectedLng;
+        let geocoder;
+        let autocomplete;
 
         // Initialize the map
         function initMap() {
-            map = L.map('map').setView([13.0827, 80.2707], 13);
+            // Default center (Chennai)
+            const defaultCenter = { lat: 13.0827, lng: 80.2707 };
 
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap contributors',
-                maxZoom: 19
-            }).addTo(map);
+            // Create map
+            map = new google.maps.Map(document.getElementById('map'), {
+                center: defaultCenter,
+                zoom: 13,
+                mapTypeControl: false,
+                streetViewControl: false,
+                fullscreenControl: false,
+                styles: [
+                    {
+                        featureType: 'poi',
+                        elementType: 'labels',
+                        stylers: [{ visibility: 'off' }]
+                    }
+                ]
+            });
 
-            map.on('click', function (e) {
-                setLocation(e.latlng.lat, e.latlng.lng);
+            // Initialize geocoder
+            geocoder = new google.maps.Geocoder();
+
+            // Initialize autocomplete
+            const searchInput = document.getElementById('searchInput');
+            autocomplete = new google.maps.places.Autocomplete(searchInput, {
+                fields: ['geometry', 'formatted_address', 'name']
+            });
+
+            // Handle place selection from autocomplete
+            autocomplete.addListener('place_changed', function () {
+                const place = autocomplete.getPlace();
+                if (place.geometry) {
+                    const lat = place.geometry.location.lat();
+                    const lng = place.geometry.location.lng();
+                    setLocation(lat, lng, place.formatted_address || place.name);
+                    map.setCenter({ lat, lng });
+                    map.setZoom(15);
+                }
+            });
+
+            // Handle map clicks
+            map.addListener('click', function (e) {
+                setLocation(e.latLng.lat(), e.latLng.lng());
             });
         }
 
         // Set location on map
-        function setLocation(lat, lng) {
+        function setLocation(lat, lng, address = null) {
             selectedLat = lat;
             selectedLng = lng;
 
-            if (marker) map.removeLayer(marker);
-            if (circle) map.removeLayer(circle);
+            // Remove existing marker and circle
+            if (marker) marker.setMap(null);
+            if (circle) circle.setMap(null);
 
-            marker = L.marker([lat, lng]).addTo(map);
+            // Add marker
+            marker = new google.maps.Marker({
+                position: { lat, lng },
+                map: map,
+                animation: google.maps.Animation.DROP
+            });
 
             // Get radius from selector
             const radiusValue = parseInt(document.getElementById('radius').value) || 500;
 
-            circle = L.circle([lat, lng], {
-                color: '#13a4ec',
+            // Add circle
+            circle = new google.maps.Circle({
+                map: map,
+                center: { lat, lng },
+                radius: radiusValue,
                 fillColor: '#13a4ec',
                 fillOpacity: 0.2,
-                radius: radiusValue
-            }).addTo(map);
+                strokeColor: '#13a4ec',
+                strokeOpacity: 0.8,
+                strokeWeight: 2
+            });
 
+            // Update hidden fields
             document.getElementById('latitude').value = lat;
             document.getElementById('longitude').value = lng;
 
-            reverseGeocode(lat, lng);
+            // Reverse geocode if address not provided
+            if (address) {
+                document.getElementById('selectedLocation').value = address;
+                document.getElementById('location').value = address;
+            } else {
+                reverseGeocode(lat, lng);
+            }
         }
 
         // Reverse geocode
         function reverseGeocode(lat, lng) {
-            const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`;
-
-            fetch(url)
-                .then(response => response.json())
-                .then(data => {
-                    const address = data.display_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+            geocoder.geocode({ location: { lat, lng } }, function (results, status) {
+                if (status === 'OK' && results[0]) {
+                    const address = results[0].formatted_address;
                     document.getElementById('selectedLocation').value = address;
                     document.getElementById('location').value = address;
-                })
-                .catch(error => {
+                } else {
                     const coords = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
                     document.getElementById('selectedLocation').value = coords;
                     document.getElementById('location').value = coords;
-                });
+                }
+            });
         }
 
         // Initialize on page load
@@ -396,15 +458,19 @@
             document.getElementById('radius').addEventListener('change', function () {
                 if (selectedLat && selectedLng) {
                     // Redraw circle with new radius
-                    if (circle) map.removeLayer(circle);
+                    if (circle) circle.setMap(null);
 
                     const radiusValue = parseInt(this.value) || 500;
-                    circle = L.circle([selectedLat, selectedLng], {
-                        color: '#13a4ec',
+                    circle = new google.maps.Circle({
+                        map: map,
+                        center: { lat: selectedLat, lng: selectedLng },
+                        radius: radiusValue,
                         fillColor: '#13a4ec',
                         fillOpacity: 0.2,
-                        radius: radiusValue
-                    }).addTo(map);
+                        strokeColor: '#13a4ec',
+                        strokeOpacity: 0.8,
+                        strokeWeight: 2
+                    });
                 }
             });
 
@@ -422,17 +488,50 @@
                 });
             });
 
+            // Authentication check
+            const token = localStorage.getItem('token');
+            const user = JSON.parse(localStorage.getItem('user') || '{}');
+
+            if (token && user.email) {
+                // User is logged in
+                document.getElementById('authMenu').classList.remove('hidden');
+                document.getElementById('userName').textContent = user.full_name || user.email;
+            } else {
+                // User is not logged in - redirect to login
+                window.location.href = '/login';
+            }
+
+            // Logout handler
+            document.getElementById('logoutBtn').addEventListener('click', function () {
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                window.location.href = '/login';
+            });
+
             // Form submission
-            document.getElementById('analysisForm').addEventListener('submit', function (e) {
+            document.getElementById('analysisForm').addEventListener('submit', async function (e) {
+                e.preventDefault();
+
                 if (!selectedLat || !selectedLng) {
-                    e.preventDefault();
                     alert('Please select a location on the map or use your current location');
                     return false;
                 }
 
-                const submitBtn = document.getElementById('submitBtn');
-                submitBtn.innerHTML = '<span class="material-symbols-outlined animate-spin">refresh</span><span>Analyzing...</span>';
-                submitBtn.disabled = true;
+                // Store form data in sessionStorage
+                const formData = {
+                    business_name: this.business_name.value,
+                    business_type: this.business_type.value,
+                    location: this.location.value,
+                    latitude: this.latitude.value,
+                    longitude: this.longitude.value,
+                    radius: this.radius.value,
+                    owner_type: this.owner_type.value
+                };
+
+                sessionStorage.setItem('analysisFormData', JSON.stringify(formData));
+
+                // Redirect to loading page
+                window.location.href = '/loading';
             });
         });
     </script>

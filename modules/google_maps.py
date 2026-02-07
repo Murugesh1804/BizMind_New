@@ -1,32 +1,37 @@
 """
-SerpAPI Integration Module (Replaces Google Maps API)
+Google Maps API Integration Module
 
-This module uses SerpAPI to fetch competitor data from Google Maps.
-SerpAPI provides a simpler interface and better reliability.
+This module uses the official Google Maps API to fetch competitor data.
+It provides geocoding, nearby search, and place details functionality.
 """
 
-import requests
+import googlemaps
 import os
+from datetime import datetime
 
 
 class GoogleMapsClient:
     """
-    Client for SerpAPI Google Maps integration
+    Client for Google Maps API integration
     """
     
     def __init__(self, api_key=None):
         """
-        Initialize the SerpAPI client
+        Initialize the Google Maps client
         
         Args:
-            api_key (str): SerpAPI API key (falls back to SERPAPI_API_KEY env var)
+            api_key (str): Google Maps API key (falls back to GOOGLE_MAP_API env var)
         """
-        self.api_key = api_key or os.getenv('SERPAPI_API_KEY')
-        self.base_url = "https://serpapi.com/search"
+        self.api_key = api_key or os.getenv('GOOGLE_MAP_API')
+        if not self.api_key:
+            raise ValueError("Google Maps API key is required. Set GOOGLE_MAP_API environment variable.")
+        
+        self.client = googlemaps.Client(key=self.api_key)
+        print("[Google Maps] Client initialized successfully")
     
     def geocode(self, location):
         """
-        Convert a location string to coordinates using SerpAPI
+        Convert a location string to coordinates using Google Geocoding API
         
         Args:
             location (str): Location string (e.g., "Alandur, Chennai, India")
@@ -35,64 +40,32 @@ class GoogleMapsClient:
             dict: {'latitude': float, 'longitude': float} or None if failed
         """
         try:
-            params = {
-                'engine': 'google_maps',
-                'q': location,
-                'type': 'search',
-                'api_key': self.api_key
-            }
+            print(f"[Google Maps] Geocoding location: {location}")
             
-            print(f"[SerpAPI Geocoding] Looking up coordinates for: {location}")
-            response = requests.get(self.base_url, params=params, timeout=15)
-            response.raise_for_status()
+            # Call Google Geocoding API
+            geocode_result = self.client.geocode(location)
             
-            data = response.json()
-            
-            # Check for errors
-            if 'error' in data:
-                print(f"[SerpAPI Geocoding] Error: {data['error']}")
+            if not geocode_result:
+                print(f"[Google Maps] No results found for: {location}")
                 return None
             
-            # Try to get coordinates from search metadata
-            if 'search_metadata' in data and 'google_maps_url' in data['search_metadata']:
-                # Parse coordinates from the URL if available
-                url = data['search_metadata']['google_maps_url']
-                if '@' in url:
-                    coords_part = url.split('@')[1].split(',')[:2]
-                    try:
-                        lat = float(coords_part[0])
-                        lng = float(coords_part[1])
-                        print(f"[SerpAPI Geocoding] Found coordinates: {lat}, {lng}")
-                        return {'latitude': lat, 'longitude': lng}
-                    except (IndexError, ValueError):
-                        pass
+            # Extract coordinates from first result
+            location_data = geocode_result[0]['geometry']['location']
+            coords = {
+                'latitude': location_data['lat'],
+                'longitude': location_data['lng']
+            }
             
-            # Try to get from local_results
-            if 'local_results' in data and len(data['local_results']) > 0:
-                first_result = data['local_results'][0]
-                if 'gps_coordinates' in first_result:
-                    coords = first_result['gps_coordinates']
-                    print(f"[SerpAPI Geocoding] Found coordinates: {coords['latitude']}, {coords['longitude']}")
-                    return coords
-            
-            # Try place_results
-            if 'place_results' in data:
-                place = data['place_results']
-                if isinstance(place, dict) and 'gps_coordinates' in place:
-                    coords = place['gps_coordinates']
-                    print(f"[SerpAPI Geocoding] Found coordinates: {coords['latitude']}, {coords['longitude']}")
-                    return coords
-            
-            print(f"[SerpAPI Geocoding] No coordinates found for: {location}")
-            return None
+            print(f"[Google Maps] Found coordinates: {coords['latitude']}, {coords['longitude']}")
+            return coords
             
         except Exception as e:
-            print(f"[SerpAPI Geocoding] Error: {str(e)}")
+            print(f"[Google Maps] Geocoding error: {str(e)}")
             return None
-        
+    
     def fetch_competitors(self, business_type, location, latitude=None, longitude=None, radius=500, max_results=20):
         """
-        Fetch nearby competitors using SerpAPI with radius filtering
+        Fetch nearby competitors using Google Places API with radius filtering
         
         Args:
             business_type (str): Type of business (e.g., "restaurant", "cafe")
@@ -106,217 +79,198 @@ class GoogleMapsClient:
             list: List of competitor dictionaries with details
         """
         try:
-            # Build search query - use coordinates if available for precision
-            if latitude and longitude:
-                # Use coordinates with SerpAPI's ll parameter for accurate location
-                search_query = business_type
-                ll_param = f"@{latitude},{longitude},15z"  # 15z is zoom level
-                print(f"[SerpAPI] Searching for {business_type} near coordinates {latitude},{longitude}")
-                print(f"[SerpAPI] Filtering within {radius}m radius")
-            else:
-                search_query = f"{business_type} in {location}"
-                ll_param = None
-                print(f"[SerpAPI] Searching for {business_type} in {location}")
+            # Ensure we have coordinates
+            if not latitude or not longitude:
+                print(f"[Google Maps] No coordinates provided, geocoding: {location}")
+                coords = self.geocode(location)
+                if coords:
+                    latitude = coords['latitude']
+                    longitude = coords['longitude']
+                else:
+                    print("[Google Maps] Failed to get coordinates")
+                    return []
             
-            # Step 1: Search for places using SerpAPI
-            places = self._search_places(search_query, max_results * 2, ll_param)  # Get more to filter by radius
+            print(f"[Google Maps] Searching for {business_type} near ({latitude}, {longitude})")
+            print(f"[Google Maps] Radius: {radius}m, Max results: {max_results}")
+            
+            # Step 1: Nearby Search
+            places = self._search_nearby_places(
+                latitude=latitude,
+                longitude=longitude,
+                keyword=business_type,
+                radius=radius
+            )
             
             if not places:
-                print("[SerpAPI] No places found")
+                print("[Google Maps] No places found")
                 return []
             
-            print(f"[SerpAPI] Found {len(places)} places")
+            print(f"[Google Maps] Found {len(places)} places")
             
-            # Step 2: Process and format competitor data
+            # Step 2: Get detailed information for each place
             competitors = []
-            competitors_filtered = 0
             
-            for place in places:
-                competitor = {
-                    'name': place.get('title', 'Unknown'),
-                    'rating': float(place.get('rating', 0)),
-                    'reviews_count': int(place.get('reviews', 0)),
-                    'address': place.get('address', ''),
-                    'reviews': self._extract_reviews(place),
-                    'price_level': self._parse_price_level(place.get('price', '')),
-                    'types': self._parse_types(place.get('type', []))
-                }
-                
-                # Add GPS coordinates if available
-                has_coords = False
-                if 'gps_coordinates' in place:
-                    competitor['latitude'] = place['gps_coordinates'].get('latitude')
-                    competitor['longitude'] = place['gps_coordinates'].get('longitude')
-                    has_coords = True
+            for idx, place in enumerate(places[:max_results]):
+                try:
+                    place_id = place.get('place_id')
+                    if not place_id:
+                        continue
                     
-                    # Calculate distance if we have both center point and competitor coords
-                    if latitude and longitude and competitor['latitude'] and competitor['longitude']:
-                        # Debug: Log coordinates for first competitor
-                        if len(competitors) == 0 and competitors_filtered == 0:
-                            print(f"[SerpAPI DEBUG] Center: ({latitude}, {longitude})")
-                            print(f"[SerpAPI DEBUG] Competitor '{competitor['name']}': ({competitor['latitude']}, {competitor['longitude']})")
+                    # Get basic info
+                    competitor = {
+                        'name': place.get('name', 'Unknown'),
+                        'rating': float(place.get('rating', 0)),
+                        'reviews_count': int(place.get('user_ratings_total', 0)),
+                        'address': place.get('vicinity', ''),
+                        'types': place.get('types', [])
+                    }
+                    
+                    # Add coordinates
+                    if 'geometry' in place and 'location' in place['geometry']:
+                        loc = place['geometry']['location']
+                        competitor['latitude'] = loc['lat']
+                        competitor['longitude'] = loc['lng']
                         
+                        # Calculate distance
                         distance = self._calculate_distance(
                             latitude, longitude,
-                            competitor['latitude'], competitor['longitude']
+                            loc['lat'], loc['lng']
                         )
                         competitor['distance_meters'] = distance
-                        
-                        # Skip if outside radius (only filter if we have coordinates)
-                        if distance > radius:
-                            competitors_filtered += 1
-                            # Debug: Log first few filtered competitors
-                            if competitors_filtered <= 3:
-                                print(f"[SerpAPI DEBUG] Filtered '{competitor['name']}' - {int(distance)}m away (radius: {radius}m)")
-                            continue
-                
-                # Add competitor (either within radius or no coords to check)
-                competitors.append(competitor)
-                
-                # Stop if we have enough results
-                if len(competitors) >= max_results:
-                    break
+                    
+                    # Parse price level
+                    competitor['price_level'] = place.get('price_level', 0)
+                    
+                    # Fetch detailed place information including reviews
+                    print(f"[Google Maps] Fetching details for: {competitor['name']}")
+                    details = self._fetch_place_details(place_id)
+                    
+                    if details:
+                        competitor['reviews'] = details.get('reviews', [])
+                        competitor['phone'] = details.get('phone', '')
+                        competitor['website'] = details.get('website', '')
+                        competitor['hours'] = details.get('hours', {})
+                    else:
+                        competitor['reviews'] = []
+                    
+                    competitors.append(competitor)
+                    
+                except Exception as e:
+                    print(f"[Google Maps] Error processing place: {str(e)}")
+                    continue
             
-            if competitors_filtered > 0:
-                print(f"[SerpAPI] Filtered out {competitors_filtered} competitors outside {radius}m radius")
-            print(f"[SerpAPI] Successfully fetched {len(competitors)} competitors")
+            print(f"[Google Maps] Successfully fetched {len(competitors)} competitors with details")
             return competitors
-        
             
         except Exception as e:
-            print(f"[SerpAPI ERROR] {str(e)}")
+            print(f"[Google Maps] Error in fetch_competitors: {str(e)}")
             return []
     
-    def _search_places(self, query, max_results, ll_param=None):
+    def _search_nearby_places(self, latitude, longitude, keyword, radius):
         """
-        Search for places using SerpAPI Google Maps API
+        Search for nearby places using Google Places Nearby Search
         
         Args:
-            query (str): Search query
-            max_results (int): Maximum results to return
-            ll_param (str): Optional location parameter (e.g., "@13.034,80.157,15z")
+            latitude (float): Center latitude
+            longitude (float): Center longitude
+            keyword (str): Search keyword (business type)
+            radius (int): Search radius in meters
             
         Returns:
             list: List of place results
         """
         try:
-            params = {
-                'engine': 'google_maps',
-                'q': query,
-                'type': 'search',
-                'api_key': self.api_key,
-                'num': min(max_results, 20)  # SerpAPI max is 20
+            # Call Places Nearby Search API
+            places_result = self.client.places_nearby(
+                location=(latitude, longitude),
+                radius=radius,
+                keyword=keyword,
+                rank_by=None  # Use radius-based ranking
+            )
+            
+            places = places_result.get('results', [])
+            
+            # Get additional pages if available (up to 60 total results)
+            next_page_token = places_result.get('next_page_token')
+            attempts = 0
+            
+            while next_page_token and len(places) < 60 and attempts < 2:
+                import time
+                time.sleep(2)  # Required delay for next_page_token to become valid
+                
+                try:
+                    next_result = self.client.places_nearby(
+                        page_token=next_page_token
+                    )
+                    places.extend(next_result.get('results', []))
+                    next_page_token = next_result.get('next_page_token')
+                    attempts += 1
+                except Exception as e:
+                    print(f"[Google Maps] Error fetching next page: {str(e)}")
+                    break
+            
+            return places
+            
+        except Exception as e:
+            print(f"[Google Maps] Nearby search error: {str(e)}")
+            return []
+    
+    def _fetch_place_details(self, place_id):
+        """
+        Fetch detailed information for a specific place using Google Place Details API
+        
+        Args:
+            place_id (str): Google Maps place ID
+            
+        Returns:
+            dict: Detailed place information including reviews, or None if failed
+        """
+        try:
+            # Request specific fields to optimize API usage
+            fields = [
+                'name', 'rating', 'reviews', 'formatted_phone_number',
+                'website', 'opening_hours', 'price_level', 'user_ratings_total'
+            ]
+            
+            place_result = self.client.place(
+                place_id=place_id,
+                fields=fields
+            )
+            
+            if 'result' not in place_result:
+                return None
+            
+            place = place_result['result']
+            
+            # Extract reviews
+            reviews = []
+            if 'reviews' in place:
+                for review in place['reviews'][:50]:  # Limit to 50 reviews
+                    review_text = review.get('text', '')
+                    if review_text:
+                        reviews.append(review_text)
+            
+            # Extract opening hours
+            hours = {}
+            if 'opening_hours' in place and 'weekday_text' in place['opening_hours']:
+                hours = {
+                    'weekday_text': place['opening_hours']['weekday_text'],
+                    'open_now': place['opening_hours'].get('open_now', False)
+                }
+            
+            detailed_data = {
+                'reviews': reviews,
+                'phone': place.get('formatted_phone_number', ''),
+                'website': place.get('website', ''),
+                'hours': hours
             }
             
-            # Add location parameter if provided
-            if ll_param:
-                params['ll'] = ll_param
+            print(f"[Google Maps] Fetched {len(reviews)} reviews")
+            return detailed_data
             
-            print(f"[SerpAPI] Making API request for: {query}" + (f" at {ll_param}" if ll_param else ""))
-            response = requests.get(self.base_url, params=params, timeout=30)
-            response.raise_for_status()
-            
-            data = response.json()
-            
-            # Check for errors
-            if 'error' in data:
-                print(f"[SerpAPI] API Error: {data['error']}")
-                return []
-            
-            # Extract local results
-            local_results = data.get('local_results', [])
-            
-            if not local_results:
-                print("[SerpAPI] No local results found")
-                # Try to get place results as fallback
-                place_results = data.get('place_results', [])
-                print(f"[SerpAPI DEBUG] place_results type: {type(place_results)}")
-                # If place_results is a dict (single result), wrap it in a list
-                if isinstance(place_results, dict):
-                    local_results = [place_results]
-                    print("[SerpAPI DEBUG] Wrapped dict in list")
-                elif isinstance(place_results, list):
-                    local_results = place_results
-                    print(f"[SerpAPI DEBUG] Using list with {len(place_results)} items")
-                else:
-                    local_results = []
-                    print("[SerpAPI DEBUG] No valid place_results found")
-            
-            print(f"[SerpAPI DEBUG] Returning {len(local_results)} results (type: {type(local_results)})")
-            return local_results[:max_results]
-            
-        except requests.exceptions.RequestException as e:
-            print(f"[SerpAPI] Request error: {str(e)}")
-            return []
         except Exception as e:
-            print(f"[SerpAPI] Unexpected error: {str(e)}")
-            return []
-    
-    def _extract_reviews(self, place):
-        """
-        Extract review texts from place data
-        
-        Args:
-            place (dict): Place data from SerpAPI
-            
-        Returns:
-            list: List of review text strings
-        """
-        reviews = []
-        
-        # SerpAPI provides reviews in different formats
-        if 'reviews' in place and isinstance(place['reviews'], list):
-            for review in place['reviews']:
-                if isinstance(review, dict) and 'snippet' in review:
-                    reviews.append(review['snippet'])
-                elif isinstance(review, str):
-                    reviews.append(review)
-        
-        # If no detailed reviews, create a summary from rating
-        if not reviews and place.get('rating'):
-            rating = place.get('rating', 0)
-            review_count = place.get('reviews', 0)
-            reviews.append(f"Rated {rating}/5 based on {review_count} reviews")
-        
-        return reviews
-    
-    def _parse_price_level(self, price_str):
-        """
-        Parse price level from string (e.g., "$$" -> 2)
-        
-        Args:
-            price_str (str): Price string from SerpAPI
-            
-        Returns:
-            int: Price level (0-4)
-        """
-        if not price_str:
-            return 0
-        
-        # Count dollar signs or rupee symbols
-        if '$' in price_str:
-            return min(price_str.count('$'), 4)
-        elif '₹' in price_str:
-            return min(price_str.count('₹'), 4)
-        
-        return 0
-    
-    def _parse_types(self, type_data):
-        """
-        Parse type/category data from SerpAPI response
-        
-        Args:
-            type_data: Can be a string, list, or None
-            
-        Returns:
-            list: List of type strings
-        """
-        if isinstance(type_data, list):
-            return type_data
-        elif isinstance(type_data, str):
-            return type_data.split(', ') if type_data else []
-        else:
-            return []
+            print(f"[Google Maps] Place details error: {str(e)}")
+            return None
     
     def _calculate_distance(self, lat1, lon1, lat2, lon2):
         """

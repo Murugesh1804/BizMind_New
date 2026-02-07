@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html class="light" lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Register - BizMind</title>
+
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+        rel="stylesheet" />
+
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#13a4ec",
+                        "background-light": "#FBFBFB",
+                        "background-dark": "#101c22",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    }
+                },
+            },
+        }
+    </script>
+
+    <style>
+        .glass-nav {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+
+        .dark .glass-nav {
+            background: rgba(16, 28, 34, 0.7);
+        }
+    </style>
+</head>
+
+<body
+    class="font-display bg-background-light dark:bg-background-dark text-[#111618] dark:text-white transition-colors duration-300">
+    <!-- Fixed Navbar -->
+    <nav class="fixed top-0 left-0 right-0 z-50 glass-nav border-b border-gray-200/50 dark:border-gray-800/50">
+        <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <img src="{{ url_for('static', filename='css/images/logo_new.png') }}" alt="Logo" width="150">
+            </div>
+        </div>
+    </nav>
+
+    <main class="min-h-screen flex items-center justify-center px-6 pt-16 pb-10">
+        <div class="w-full max-w-md">
+            <div
+                class="bg-white dark:bg-gray-900 rounded-xl shadow-2xl p-8 border border-gray-100 dark:border-gray-800">
+                <!-- Header -->
+                <div class="text-center mb-8">
+                    <h1 class="text-3xl font-extrabold text-gray-900 dark:text-white mb-2">Create Account</h1>
+                    <p class="text-gray-600 dark:text-gray-400">Start making smarter business decisions</p>
+                </div>
+
+                <!-- Error Message -->
+                <div id="errorMessage"
+                    class="hidden mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                    <p class="text-sm text-red-600 dark:text-red-400" id="errorText"></p>
+                </div>
+
+                <!-- Register Form -->
+                <form id="registerForm" class="space-y-5">
+                    <div class="space-y-2">
+                        <label class="text-xs font-bold uppercase tracking-wider text-gray-400">Full Name</label>
+                        <input type="text" id="full_name" required
+                            class="w-full bg-gray-50 dark:bg-gray-800 border-none rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary text-gray-900 dark:text-white placeholder:text-gray-400"
+                            placeholder="John Doe" />
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="text-xs font-bold uppercase tracking-wider text-gray-400">Email</label>
+                        <input type="email" id="email" required
+                            class="w-full bg-gray-50 dark:bg-gray-800 border-none rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary text-gray-900 dark:text-white placeholder:text-gray-400"
+                            placeholder="you@example.com" />
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="text-xs font-bold uppercase tracking-wider text-gray-400">Password</label>
+                        <input type="password" id="password" required
+                            class="w-full bg-gray-50 dark:bg-gray-800 border-none rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary text-gray-900 dark:text-white placeholder:text-gray-400"
+                            placeholder="••••••••" />
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Minimum 8 characters</p>
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="text-xs font-bold uppercase tracking-wider text-gray-400">Confirm
+                            Password</label>
+                        <input type="password" id="confirm_password" required
+                            class="w-full bg-gray-50 dark:bg-gray-800 border-none rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary text-gray-900 dark:text-white placeholder:text-gray-400"
+                            placeholder="••••••••" />
+                    </div>
+
+                    <button type="submit" id="submitBtn"
+                        class="w-full bg-primary hover:bg-primary/90 text-white font-extrabold py-4 rounded-xl shadow-lg shadow-primary/30 transition-all hover:-translate-y-0.5 flex items-center justify-center gap-2">
+                        <span id="btnText">Create Account</span>
+                        <span class="material-symbols-outlined">arrow_forward</span>
+                    </button>
+                </form>
+
+                <!-- Footer -->
+                <div class="mt-6 text-center">
+                    <p class="text-sm text-gray-600 dark:text-gray-400">
+                        Already have an account?
+                        <a href="/login" class="text-primary font-bold hover:underline">Sign in</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        document.getElementById('registerForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            const submitBtn = document.getElementById('submitBtn');
+            const btnText = document.getElementById('btnText');
+            const errorMessage = document.getElementById('errorMessage');
+            const errorText = document.getElementById('errorText');
+
+            // Hide error message
+            errorMessage.classList.add('hidden');
+
+            const full_name = document.getElementById('full_name').value;
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const confirm_password = document.getElementById('confirm_password').value;
+
+            // Validate passwords match
+            if (password !== confirm_password) {
+                errorText.textContent = 'Passwords do not match';
+                errorMessage.classList.remove('hidden');
+                return;
+            }
+
+            // Disable button
+            submitBtn.disabled = true;
+            btnText.textContent = 'Creating account...';
+
+            try {
+                const response = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password, full_name })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Store token
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('user', JSON.stringify(data.user));
+
+                    // Redirect to home
+                    window.location.href = '/';
+                } else {
+                    // Show error
+                    errorText.textContent = data.message || 'Registration failed';
+                    errorMessage.classList.remove('hidden');
+
+                    // Re-enable button
+                    submitBtn.disabled = false;
+                    btnText.textContent = 'Create Account';
+                }
+            } catch (error) {
+                errorText.textContent = 'Network error. Please try again.';
+                errorMessage.classList.remove('hidden');
+
+                // Re-enable button
+                submitBtn.disabled = false;
+                btnText.textContent = 'Create Account';
+            }
+        });
+    </script>
+</body>
+
+</html>

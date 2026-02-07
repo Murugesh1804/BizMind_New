@@ -5,7 +5,7 @@
     <meta charset="utf-8" />
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
     <title>BizMind Business Analysis Dashboard</title>
-
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='css/images/fav.png') }}">
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 
@@ -16,6 +16,9 @@
     <!-- Material Symbols -->
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
         rel="stylesheet" />
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
     <script id="tailwind-config">
         tailwind.config = {
@@ -139,7 +142,7 @@
             <div class="flex items-center gap-6">
                 <nav class="hidden md:flex gap-6 text-sm font-semibold text-[#617589] dark:text-gray-400">
                     <a class="hover:text-primary transition-colors" href="/">Dashboard</a>
-                    <a class="hover:text-primary transition-colors" href="#">History</a>
+                    <a class="hover:text-primary transition-colors" href="/history">History</a>
                     <a class="hover:text-primary transition-colors" href="#">Market Trends</a>
                 </nav>
                 <div class="flex items-center gap-4 border-l pl-6 border-[#f0f2f4] dark:border-white/10">
@@ -174,15 +177,9 @@
                     </p>
                 </div>
                 <div class="relative size-48 md:size-56 flex items-center justify-center">
-                    <svg class="size-full transform -rotate-90">
-                        <circle class="text-gray-100 dark:text-gray-800" cx="50%" cy="50%" fill="transparent" r="45%"
-                            stroke="currentColor" stroke-width="12"></circle>
-                        <circle class="text-emerald-500" cx="50%" cy="50%" fill="transparent" r="45%"
-                            stroke="currentColor" stroke-dasharray="280"
-                            stroke-dashoffset="{{ 280 - (280 * data.success_score / 10) }}" stroke-linecap="round"
-                            stroke-width="12"></circle>
-                    </svg>
-                    <div class="absolute inset-0 flex flex-col items-center justify-center text-center">
+                    <canvas id="successScoreChart"></canvas>
+                    <div
+                        class="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
                         <span class="text-4xl font-extrabold success-gradient-text">{{ data.success_score }}</span>
                         <span
                             class="text-xs font-bold text-[#617589] dark:text-gray-400 uppercase tracking-widest">Success
@@ -212,13 +209,8 @@
                     <p class="text-[#617589] dark:text-gray-400 text-sm font-medium">Competition</p>
                     <p class="text-2xl font-bold">{{ data.features.competitor_count }} Competitors</p>
                 </div>
-                <div
-                    class="h-10 w-full bg-gradient-to-r from-primary/10 to-primary/30 rounded-lg flex items-end px-1 gap-1">
-                    <div class="h-[40%] w-full bg-primary/40 rounded-t-sm"></div>
-                    <div class="h-[60%] w-full bg-primary/40 rounded-t-sm"></div>
-                    <div class="h-[50%] w-full bg-primary/40 rounded-t-sm"></div>
-                    <div class="h-[80%] w-full bg-primary rounded-t-sm"></div>
-                    <div class="h-[70%] w-full bg-primary/40 rounded-t-sm"></div>
+                <div class="h-16 w-full">
+                    <canvas id="competitionMiniChart"></canvas>
                 </div>
             </div>
 
@@ -237,13 +229,8 @@
                     <p class="text-[#617589] dark:text-gray-400 text-sm font-medium">Market Demand</p>
                     <p class="text-2xl font-bold">{{ data.features.demand_level }}</p>
                 </div>
-                <div
-                    class="h-10 w-full bg-gradient-to-r from-orange-100 to-orange-200 dark:from-orange-900/10 dark:to-orange-900/20 rounded-lg flex items-end px-1 gap-1">
-                    <div class="h-[30%] w-full bg-orange-400 rounded-t-sm"></div>
-                    <div class="h-[40%] w-full bg-orange-400 rounded-t-sm"></div>
-                    <div class="h-[70%] w-full bg-orange-400 rounded-t-sm"></div>
-                    <div class="h-[85%] w-full bg-orange-600 rounded-t-sm"></div>
-                    <div class="h-[95%] w-full bg-orange-600 rounded-t-sm"></div>
+                <div class="h-16 w-full">
+                    <canvas id="demandMiniChart"></canvas>
                 </div>
             </div>
 
@@ -260,18 +247,8 @@
                     <p class="text-[#617589] dark:text-gray-400 text-sm font-medium">Avg. Rating</p>
                     <p class="text-2xl font-bold">{{ data.features.avg_rating }} / 5.0</p>
                 </div>
-                <div class="flex gap-1">
-                    {% set rating = data.features.avg_rating %}
-                    {% for i in range(1, 6) %}
-                    {% if i <= rating %} <span
-                        class="material-symbols-outlined text-yellow-400 fill-current text-[20px]">star</span>
-                        {% elif i - 0.5 <= rating %} <span
-                            class="material-symbols-outlined text-yellow-400 fill-current text-[20px]">star_half</span>
-                            {% else %}
-                            <span
-                                class="material-symbols-outlined text-gray-300 dark:text-gray-700 text-[20px]">star</span>
-                            {% endif %}
-                            {% endfor %}
+                <div class="h-12 w-full">
+                    <canvas id="ratingMiniChart"></canvas>
                 </div>
             </div>
 
@@ -289,9 +266,8 @@
                     <p class="text-[#617589] dark:text-gray-400 text-sm font-medium">Opportunity</p>
                     <p class="text-2xl font-bold">{{ (data.features.opportunity_score * 10)|round(1) }}/10</p>
                 </div>
-                <div class="w-full h-2 bg-gray-100 dark:bg-gray-800 rounded-full mt-4 overflow-hidden">
-                    <div class="h-full bg-emerald-500 rounded-full"
-                        style="width: {{ (data.features.opportunity_score * 100)|round(0) }}%"></div>
+                <div class="h-12 w-full mt-2">
+                    <canvas id="opportunityMiniChart"></canvas>
                 </div>
             </div>
         </div>
@@ -508,6 +484,519 @@
 
         // Run formatting when page loads
         document.addEventListener('DOMContentLoaded', formatAIInsights);
+
+        /**
+         * Initialize mini interactive charts for metric cards
+         */
+        function initializeMiniCharts() {
+            const isDarkMode = document.documentElement.classList.contains('dark');
+            const textColor = isDarkMode ? '#9ca3af' : '#617589';
+            const features = {{ data.features | tojson
+        }};
+
+        // 1. Success Score Doughnut Chart
+        new Chart(document.getElementById('successScoreChart'), {
+            type: 'doughnut',
+            data: {
+                datasets: [{
+                    data: [{{ data.success_score }}, 10 - {{ data.success_score }}],
+            backgroundColor: [
+                'rgba(16, 185, 129, 0.8)',
+                'rgba(229, 231, 235, 0.3)'
+            ],
+            borderColor: [
+                'rgba(16, 185, 129, 1)',
+                isDarkMode ? 'rgba(55, 65, 81, 1)' : 'rgba(229, 231, 235, 1)'
+            ],
+            borderWidth: 2
+        }]
+                },
+            options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            cutout: '75%',
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    enabled: true,
+                    callbacks: {
+                        label: function (context) {
+                            if (context.dataIndex === 0) {
+                                return `Success Score: ${context.parsed}/10`;
+                            }
+                            return null;
+                        }
+                    }
+                }
+            }
+        }
+            });
+
+        // 2. Competition Mini Bar Chart
+        new Chart(document.getElementById('competitionMiniChart'), {
+            type: 'bar',
+            data: {
+                labels: ['W1', 'W2', 'W3', 'W4', 'W5'],
+                datasets: [{
+                    data: [40, 60, 50, 80, 70],
+                    backgroundColor: [
+                        'rgba(19, 127, 236, 0.4)',
+                        'rgba(19, 127, 236, 0.4)',
+                        'rgba(19, 127, 236, 0.4)',
+                        'rgba(19, 127, 236, 1)',
+                        'rgba(19, 127, 236, 0.4)'
+                    ],
+                    borderColor: 'rgba(19, 127, 236, 1)',
+                    borderWidth: 0,
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        enabled: true,
+                        callbacks: {
+                            label: function (context) {
+                                return `Competition Level: ${context.parsed.y}%`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: { display: false },
+                    y: { display: false, beginAtZero: true, max: 100 }
+                }
+            }
+        });
+
+        // 3. Market Demand Mini Line Chart
+        new Chart(document.getElementById('demandMiniChart'), {
+            type: 'line',
+            data: {
+                labels: ['W1', 'W2', 'W3', 'W4', 'W5'],
+                datasets: [{
+                    data: [30, 40, 70, 85, 95],
+                    backgroundColor: 'rgba(249, 115, 22, 0.1)',
+                    borderColor: 'rgba(249, 115, 22, 1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 0,
+                    pointHoverRadius: 6,
+                    pointBackgroundColor: 'rgba(249, 115, 22, 1)',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        enabled: true,
+                        callbacks: {
+                            label: function (context) {
+                                return `Demand Trend: ${context.parsed.y}%`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: { display: false },
+                    y: { display: false, beginAtZero: true, max: 100 }
+                }
+            }
+        });
+
+        // 4. Rating Mini Horizontal Bar Chart
+        const avgRating = features.avg_rating;
+        new Chart(document.getElementById('ratingMiniChart'), {
+            type: 'bar',
+            data: {
+                labels: ['Rating'],
+                datasets: [{
+                    label: 'Current Rating',
+                    data: [avgRating],
+                    backgroundColor: 'rgba(234, 179, 8, 0.8)',
+                    borderColor: 'rgba(234, 179, 8, 1)',
+                    borderWidth: 2,
+                    borderRadius: 8
+                }, {
+                    label: 'Max Rating',
+                    data: [5 - avgRating],
+                    backgroundColor: isDarkMode ? 'rgba(55, 65, 81, 0.3)' : 'rgba(229, 231, 235, 0.5)',
+                    borderColor: isDarkMode ? 'rgba(55, 65, 81, 0.5)' : 'rgba(229, 231, 235, 1)',
+                    borderWidth: 1,
+                    borderRadius: 8
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        enabled: true,
+                        callbacks: {
+                            label: function (context) {
+                                if (context.datasetIndex === 0) {
+                                    return `Rating: ${avgRating.toFixed(1)} / 5.0`;
+                                }
+                                return null;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        display: false,
+                        stacked: true,
+                        max: 5
+                    },
+                    y: {
+                        display: false,
+                        stacked: true
+                    }
+                }
+            }
+        });
+
+        // 5. Opportunity Mini Progress Chart
+        const opportunityScore = features.opportunity_score * 10;
+        new Chart(document.getElementById('opportunityMiniChart'), {
+            type: 'bar',
+            data: {
+                labels: ['Opportunity'],
+                datasets: [{
+                    label: 'Score',
+                    data: [opportunityScore],
+                    backgroundColor: 'rgba(16, 185, 129, 0.8)',
+                    borderColor: 'rgba(16, 185, 129, 1)',
+                    borderWidth: 2,
+                    borderRadius: 8
+                }, {
+                    label: 'Remaining',
+                    data: [10 - opportunityScore],
+                    backgroundColor: isDarkMode ? 'rgba(55, 65, 81, 0.3)' : 'rgba(229, 231, 235, 0.5)',
+                    borderColor: isDarkMode ? 'rgba(55, 65, 81, 0.5)' : 'rgba(229, 231, 235, 1)',
+                    borderWidth: 1,
+                    borderRadius: 8
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        enabled: true,
+                        callbacks: {
+                            label: function (context) {
+                                if (context.datasetIndex === 0) {
+                                    return `Opportunity: ${opportunityScore.toFixed(1)} / 10`;
+                                }
+                                return null;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        display: false,
+                        stacked: true,
+                        max: 10
+                    },
+                    y: {
+                        display: false,
+                        stacked: true
+                    }
+                }
+            }
+        });
+        }
+
+        /**
+         * Initialize interactive charts using Chart.js
+         */
+        function initializeCharts() {
+            const isDarkMode = document.documentElement.classList.contains('dark');
+            const textColor = isDarkMode ? '#9ca3af' : '#617589';
+            const gridColor = isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+
+            // Chart.js default configuration
+            Chart.defaults.color = textColor;
+            Chart.defaults.borderColor = gridColor;
+            Chart.defaults.font.family = 'Manrope, sans-serif';
+
+            // 1. Competitor Comparison Chart (Bar Chart)
+            const competitors = {{ data.competitors[:5] | tojson
+        }};
+        const competitorNames = competitors.map(c => c.name.substring(0, 20) + (c.name.length > 20 ? '...' : ''));
+        const competitorRatings = competitors.map(c => c.rating);
+        const competitorReviews = competitors.map(c => c.reviews_count);
+
+        new Chart(document.getElementById('competitorChart'), {
+            type: 'bar',
+            data: {
+                labels: competitorNames,
+                datasets: [{
+                    label: 'Rating',
+                    data: competitorRatings,
+                    backgroundColor: 'rgba(19, 127, 236, 0.7)',
+                    borderColor: 'rgba(19, 127, 236, 1)',
+                    borderWidth: 2,
+                    borderRadius: 8,
+                    yAxisID: 'y'
+                }, {
+                    label: 'Reviews',
+                    data: competitorReviews,
+                    backgroundColor: 'rgba(16, 185, 129, 0.7)',
+                    borderColor: 'rgba(16, 185, 129, 1)',
+                    borderWidth: 2,
+                    borderRadius: 8,
+                    yAxisID: 'y1'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false
+                },
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top'
+                    },
+                    tooltip: {
+                        backgroundColor: isDarkMode ? 'rgba(26, 37, 51, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+                        titleColor: isDarkMode ? '#fff' : '#111418',
+                        bodyColor: isDarkMode ? '#9ca3af' : '#617589',
+                        borderColor: isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+                        borderWidth: 1,
+                        padding: 12,
+                        displayColors: true
+                    }
+                },
+                scales: {
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        title: {
+                            display: true,
+                            text: 'Rating (out of 5)'
+                        },
+                        max: 5
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        title: {
+                            display: true,
+                            text: 'Number of Reviews'
+                        },
+                        grid: {
+                            drawOnChartArea: false
+                        }
+                    }
+                }
+            }
+        });
+
+        // 2. Market Metrics Radar Chart
+        const features = {{ data.features | tojson }};
+        new Chart(document.getElementById('metricsChart'), {
+            type: 'radar',
+            data: {
+                labels: ['Success Score', 'Opportunity', 'Avg Rating', 'Market Demand', 'Competition'],
+                datasets: [{
+                    label: 'Market Performance',
+                    data: [
+                        features.success_score,
+                        features.opportunity_score * 10,
+                        features.avg_rating * 2,
+                        features.demand_level === 'High' ? 9 : features.demand_level === 'Medium' ? 6 : 3,
+                        features.competition_level === 'Low' ? 9 : features.competition_level === 'Medium' ? 6 : 3
+                    ],
+                    backgroundColor: 'rgba(19, 127, 236, 0.2)',
+                    borderColor: 'rgba(19, 127, 236, 1)',
+                    borderWidth: 2,
+                    pointBackgroundColor: 'rgba(19, 127, 236, 1)',
+                    pointBorderColor: '#fff',
+                    pointHoverBackgroundColor: '#fff',
+                    pointHoverBorderColor: 'rgba(19, 127, 236, 1)',
+                    pointRadius: 5,
+                    pointHoverRadius: 7
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: isDarkMode ? 'rgba(26, 37, 51, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+                        titleColor: isDarkMode ? '#fff' : '#111418',
+                        bodyColor: isDarkMode ? '#9ca3af' : '#617589',
+                        borderColor: isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+                        borderWidth: 1,
+                        padding: 12
+                    }
+                },
+                scales: {
+                    r: {
+                        beginAtZero: true,
+                        max: 10,
+                        ticks: {
+                            stepSize: 2
+                        }
+                    }
+                }
+            }
+        });
+
+        // 3. Rating Distribution Chart (Doughnut)
+        // Calculate rating distribution from competitors
+        const ratingCounts = [0, 0, 0, 0, 0]; // 1-star, 2-star, 3-star, 4-star, 5-star
+        competitors.forEach(comp => {
+            const rating = Math.floor(comp.rating);
+            if (rating >= 1 && rating <= 5) {
+                ratingCounts[rating - 1]++;
+            }
+        });
+
+        new Chart(document.getElementById('ratingChart'), {
+            type: 'doughnut',
+            data: {
+                labels: ['1 Star', '2 Stars', '3 Stars', '4 Stars', '5 Stars'],
+                datasets: [{
+                    data: ratingCounts,
+                    backgroundColor: [
+                        'rgba(239, 68, 68, 0.7)',
+                        'rgba(249, 115, 22, 0.7)',
+                        'rgba(234, 179, 8, 0.7)',
+                        'rgba(34, 197, 94, 0.7)',
+                        'rgba(16, 185, 129, 0.7)'
+                    ],
+                    borderColor: [
+                        'rgba(239, 68, 68, 1)',
+                        'rgba(249, 115, 22, 1)',
+                        'rgba(234, 179, 8, 1)',
+                        'rgba(34, 197, 94, 1)',
+                        'rgba(16, 185, 129, 1)'
+                    ],
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: {
+                            padding: 15,
+                            usePointStyle: true,
+                            pointStyle: 'circle'
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: isDarkMode ? 'rgba(26, 37, 51, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+                        titleColor: isDarkMode ? '#fff' : '#111418',
+                        bodyColor: isDarkMode ? '#9ca3af' : '#617589',
+                        borderColor: isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+                        borderWidth: 1,
+                        padding: 12,
+                        callbacks: {
+                            label: function (context) {
+                                const label = context.label || '';
+                                const value = context.parsed || 0;
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                                return `${label}: ${value} (${percentage}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // 4. Success Score Breakdown (Horizontal Bar)
+        new Chart(document.getElementById('successChart'), {
+            type: 'bar',
+            data: {
+                labels: ['Success Score', 'Opportunity', 'Avg Rating', 'Market Demand'],
+                datasets: [{
+                    label: 'Score (out of 10)',
+                    data: [
+                        features.success_score,
+                        features.opportunity_score * 10,
+                        features.avg_rating * 2,
+                        features.demand_level === 'High' ? 9 : features.demand_level === 'Medium' ? 6 : 3
+                    ],
+                    backgroundColor: [
+                        'rgba(16, 185, 129, 0.7)',
+                        'rgba(19, 127, 236, 0.7)',
+                        'rgba(168, 85, 247, 0.7)',
+                        'rgba(249, 115, 22, 0.7)'
+                    ],
+                    borderColor: [
+                        'rgba(16, 185, 129, 1)',
+                        'rgba(19, 127, 236, 1)',
+                        'rgba(168, 85, 247, 1)',
+                        'rgba(249, 115, 22, 1)'
+                    ],
+                    borderWidth: 2,
+                    borderRadius: 8
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: isDarkMode ? 'rgba(26, 37, 51, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+                        titleColor: isDarkMode ? '#fff' : '#111418',
+                        bodyColor: isDarkMode ? '#9ca3af' : '#617589',
+                        borderColor: isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+                        borderWidth: 1,
+                        padding: 12
+                    }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        max: 10,
+                        title: {
+                            display: true,
+                            text: 'Score (0-10)'
+                        }
+                    }
+                }
+            }
+        });
+        }
+
+        // Initialize charts when page loads
+        document.addEventListener('DOMContentLoaded', function () {
+            initializeMiniCharts();
+            initializeCharts();
+        });
     </script>
 </body>
 

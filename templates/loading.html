@@ -7,7 +7,7 @@
     <title>Analyzing... - BizMind</title>
 
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&display=swap" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
         rel="stylesheet" />
 
@@ -17,195 +17,182 @@
             theme: {
                 extend: {
                     colors: {
-                        "primary": "#13a4ec",
-                        "background-light": "#FBFBFB",
-                        "background-dark": "#101c22",
+                        "primary": "#135bec",
+                        "background-light": "#f8f9fb",
+                        "background-dark": "#0a0a0b",
                     },
                     fontFamily: {
                         "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.5rem",
+                        "lg": "1rem",
+                        "xl": "1.5rem",
+                        "full": "9999px"
                     },
                 },
             },
         }
     </script>
 
-    <style>
-        @keyframes pulse-glow {
-
-            0%,
-            100% {
-                opacity: 1;
-                transform: scale(1);
-            }
-
-            50% {
-                opacity: 0.5;
-                transform: scale(1.05);
-            }
-        }
-
-        .pulse-glow {
-            animation: pulse-glow 2s ease-in-out infinite;
-        }
-
-        @keyframes spin {
-            from {
+    <style type="text/tailwindcss">
+        @keyframes spinner-draw {
+            0% {
+                stroke-dashoffset: 280;
                 transform: rotate(0deg);
             }
 
-            to {
+            50% {
+                stroke-dashoffset: 75;
+                transform: rotate(180deg);
+            }
+
+            100% {
+                stroke-dashoffset: 280;
                 transform: rotate(360deg);
             }
         }
 
-        .animate-spin-slow {
-            animation: spin 3s linear infinite;
+        .animate-spinner {
+            animation: spinner-draw 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+            transform-origin: center;
+        }
+
+        .loading-dots:after {
+            content: '.';
+            animation: dots 1.5s steps(5, end) infinite;
+        }
+
+        @keyframes dots {
+            0%,
+            20% {
+                content: '.';
+            }
+
+            40% {
+                content: '..';
+            }
+
+            60% {
+                content: '...';
+            }
+
+            80%,
+            100% {
+                content: '';
+            }
         }
     </style>
 </head>
 
 <body
-    class="font-display bg-background-light dark:bg-background-dark text-[#111618] dark:text-white min-h-screen flex items-center justify-center">
-    <div class="max-w-2xl mx-auto px-6 text-center">
-        <!-- Animated Icon -->
-        <div class="mb-8 flex justify-center">
-            <div class="relative">
-                <div class="absolute inset-0 bg-primary/20 rounded-full blur-2xl pulse-glow"></div>
-                <div class="relative bg-primary/10 p-8 rounded-full">
-                    <span
-                        class="material-symbols-outlined text-primary !text-[80px] animate-spin-slow">psychology</span>
+    class="bg-background-light dark:bg-background-dark font-display text-[#111318] dark:text-white transition-colors duration-300">
+    <div class="relative flex h-screen w-full flex-col overflow-x-hidden">
+        <div class="layout-container flex h-full grow flex-col">
+            <main class="flex-1 flex flex-col items-center justify-center px-6 max-w-4xl mx-auto w-full -mt-16">
+                <div class="relative mb-10 flex items-center justify-center">
+                    <div class="absolute inset-0 bg-primary/10 blur-[60px] rounded-full scale-150"></div>
+                    <svg class="w-24 h-24 md:w-28 md:h-28 relative z-10" viewBox="0 0 100 100">
+                        <circle class="text-gray-200/50 dark:text-gray-800/50" cx="50" cy="50" fill="none" r="45"
+                            stroke="currentColor" stroke-width="6"></circle>
+                        <circle class="text-primary animate-spinner" cx="50" cy="50" fill="none" r="45"
+                            stroke="currentColor" stroke-dasharray="283" stroke-linecap="round" stroke-width="6"
+                            style="stroke-dashoffset: 210;"></circle>
+                    </svg>
                 </div>
+
+                <div class="text-center max-w-md">
+                    <h1 class="text-2xl md:text-3xl font-extrabold mb-4 tracking-tight text-gray-900 dark:text-white">
+                        Analyzing Your Business Location
+                    </h1>
+                    <p class="text-gray-500 dark:text-gray-400 text-base md:text-lg font-medium leading-relaxed">
+                        Fetching market data and competitor insights<span class="loading-dots"></span>
+                    </p>
+                </div>
+
+                <div class="mt-16 flex flex-col items-center gap-6">
+                    <div
+                        class="flex items-center gap-3 text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest px-5 py-2.5 rounded-full border border-gray-200/50 dark:border-gray-800/50 bg-white/30 dark:bg-white/5 backdrop-blur-sm shadow-sm">
+                        <span class="size-1.5 rounded-full bg-primary animate-pulse"></span>
+                        Estimated time: 10-15 seconds
+                    </div>
+                </div>
+            </main>
+
+            <div class="fixed bottom-12 left-1/2 -translate-x-1/2 opacity-20 pointer-events-none">
+                <p class="text-[10px] uppercase tracking-[0.4em] font-bold text-gray-500">Secure Neural Processing</p>
             </div>
         </div>
-
-        <!-- Loading Text -->
-        <h2 class="text-3xl md:text-4xl font-extrabold mb-3 text-gray-900 dark:text-white">
-            Analyzing Your Business Location
-        </h2>
-        <p class="text-lg text-gray-600 dark:text-gray-400 mb-12">
-            Please wait while we gather comprehensive market insights...
-        </p>
-
-        <!-- Progress Steps -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-12">
-            <div
-                class="step bg-white dark:bg-gray-900 rounded-xl p-6 border border-gray-100 dark:border-gray-800 transition-all duration-300">
-                <div class="flex items-center gap-4">
-                    <div class="bg-primary/10 p-3 rounded-lg">
-                        <span class="material-symbols-outlined text-primary !text-2xl">map</span>
-                    </div>
-                    <div class="text-left">
-                        <h3 class="font-bold text-gray-900 dark:text-white">Location Data</h3>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">Fetching geospatial information</p>
-                    </div>
-                </div>
-            </div>
-
-            <div
-                class="step bg-white dark:bg-gray-900 rounded-xl p-6 border border-gray-100 dark:border-gray-800 transition-all duration-300">
-                <div class="flex items-center gap-4">
-                    <div class="bg-gray-100 dark:bg-gray-800 p-3 rounded-lg">
-                        <span class="material-symbols-outlined text-gray-400 !text-2xl">group</span>
-                    </div>
-                    <div class="text-left">
-                        <h3 class="font-bold text-gray-400">Competitors</h3>
-                        <p class="text-sm text-gray-400">Analyzing market saturation</p>
-                    </div>
-                </div>
-            </div>
-
-            <div
-                class="step bg-white dark:bg-gray-900 rounded-xl p-6 border border-gray-100 dark:border-gray-800 transition-all duration-300">
-                <div class="flex items-center gap-4">
-                    <div class="bg-gray-100 dark:bg-gray-800 p-3 rounded-lg">
-                        <span class="material-symbols-outlined text-gray-400 !text-2xl">chat_bubble</span>
-                    </div>
-                    <div class="text-left">
-                        <h3 class="font-bold text-gray-400">Reviews</h3>
-                        <p class="text-sm text-gray-400">Processing customer sentiment</p>
-                    </div>
-                </div>
-            </div>
-
-            <div
-                class="step bg-white dark:bg-gray-900 rounded-xl p-6 border border-gray-100 dark:border-gray-800 transition-all duration-300">
-                <div class="flex items-center gap-4">
-                    <div class="bg-gray-100 dark:bg-gray-800 p-3 rounded-lg">
-                        <span class="material-symbols-outlined text-gray-400 !text-2xl">smart_toy</span>
-                    </div>
-                    <div class="text-left">
-                        <h3 class="font-bold text-gray-400">AI Insights</h3>
-                        <p class="text-sm text-gray-400">Generating recommendations</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Progress Bar -->
-        <div class="w-full bg-gray-200 dark:bg-gray-800 rounded-full h-2 overflow-hidden">
-            <div class="bg-gradient-to-r from-primary to-blue-400 h-full rounded-full animate-pulse" style="width: 60%">
-            </div>
-        </div>
-        <p class="text-xs text-gray-400 mt-3 uppercase tracking-widest font-bold">This may take 10-15 seconds</p>
     </div>
 
     <!-- Loading Animation Script -->
     <script>
-        const steps = document.querySelectorAll('.step');
-        let currentStep = 0;
+        // Auto-submit analysis when page loads
+        document.addEventListener('DOMContentLoaded', async function () {
+            // Get form data from sessionStorage
+            const formDataStr = sessionStorage.getItem('analysisFormData');
 
-        function activateStep(index) {
-            steps.forEach((step, i) => {
-                const icon = step.querySelector('.bg-primary\\/10, .bg-gray-100');
-                const iconSymbol = step.querySelector('.material-symbols-outlined');
-                const title = step.querySelector('h3');
-                const desc = step.querySelector('p');
+            if (!formDataStr) {
+                // No form data, redirect back to home
+                window.location.href = '/';
+                return;
+            }
 
-                if (i === index) {
-                    // Active state
-                    icon.classList.remove('bg-gray-100', 'dark:bg-gray-800');
-                    icon.classList.add('bg-primary/10');
-                    iconSymbol.classList.remove('text-gray-400');
-                    iconSymbol.classList.add('text-primary');
-                    title.classList.remove('text-gray-400');
-                    title.classList.add('text-gray-900', 'dark:text-white');
-                    desc.classList.remove('text-gray-400');
-                    desc.classList.add('text-gray-500', 'dark:text-gray-400');
-                    step.classList.add('ring-2', 'ring-primary/20');
-                } else if (i < index) {
-                    // Completed state
-                    icon.classList.remove('bg-gray-100', 'dark:bg-gray-800', 'bg-primary/10');
-                    icon.classList.add('bg-emerald-100', 'dark:bg-emerald-900/30');
-                    iconSymbol.classList.remove('text-gray-400', 'text-primary');
-                    iconSymbol.classList.add('text-emerald-600');
-                    title.classList.remove('text-gray-400');
-                    title.classList.add('text-emerald-600');
-                    desc.classList.remove('text-gray-400');
-                    desc.classList.add('text-emerald-500');
-                    step.classList.remove('ring-2', 'ring-primary/20');
-                } else {
-                    // Inactive state
-                    icon.classList.remove('bg-primary/10', 'bg-emerald-100', 'dark:bg-emerald-900/30');
-                    icon.classList.add('bg-gray-100', 'dark:bg-gray-800');
-                    iconSymbol.classList.remove('text-primary', 'text-emerald-600');
-                    iconSymbol.classList.add('text-gray-400');
-                    title.classList.remove('text-gray-900', 'dark:text-white', 'text-emerald-600');
-                    title.classList.add('text-gray-400');
-                    desc.classList.remove('text-gray-500', 'dark:text-gray-400', 'text-emerald-500');
-                    desc.classList.add('text-gray-400');
-                    step.classList.remove('ring-2', 'ring-primary/20');
+            const formDataObj = JSON.parse(formDataStr);
+            const token = localStorage.getItem('token');
+
+            if (!token) {
+                // No token, redirect to login
+                sessionStorage.removeItem('analysisFormData');
+                window.location.href = '/login';
+                return;
+            }
+
+            // Create FormData object
+            const formData = new FormData();
+            for (const key in formDataObj) {
+                formData.append(key, formDataObj[key]);
+            }
+
+            try {
+                const response = await fetch('/analyze', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: formData
+                });
+
+                // Clear the stored form data
+                sessionStorage.removeItem('analysisFormData');
+
+                if (response.status === 401) {
+                    // Token expired
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    alert('Session expired. Please login again.');
+                    window.location.href = '/login';
+                    return;
                 }
-            });
-        }
 
-        // Initial state
-        activateStep(0);
-
-        // Animate through steps
-        setInterval(() => {
-            currentStep = (currentStep + 1) % steps.length;
-            activateStep(currentStep);
-        }, 2500);
+                if (response.ok) {
+                    // Get the HTML response
+                    const html = await response.text();
+                    // Replace current page with dashboard
+                    document.open();
+                    document.write(html);
+                    document.close();
+                } else {
+                    const data = await response.json();
+                    alert(data.message || 'Analysis failed. Please try again.');
+                    window.location.href = '/';
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Network error. Please try again.');
+                window.location.href = '/';
+            }
+        });
     </script>
 </body>
 

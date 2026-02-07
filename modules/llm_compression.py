@@ -83,22 +83,55 @@ class LLMLinguaCompressor:
         try:
             print(f"[LLMLingua] Compressing {len(text)} characters...")
             
-            # Compress the text
-            compressed_result = self.compressor.compress_prompt(
-                text,
-                rate=target_ratio,
-                force_tokens=['\n', '.', '!', '?', ',']  # Preserve important punctuation
-            )
+            # Split text into chunks to avoid exceeding model's max sequence length (512 tokens)
+            # We use ~400 tokens per chunk to be safe
+            words = text.split()
+            chunk_size = 400  # Conservative limit to stay under 512 tokens
+            chunks = []
             
-            compressed_text = compressed_result['compressed_prompt']
+            for i in range(0, len(words), chunk_size):
+                chunk = ' '.join(words[i:i + chunk_size])
+                chunks.append(chunk)
             
-            original_tokens = len(text.split())
-            compressed_tokens = len(compressed_text.split())
-            reduction = ((original_tokens - compressed_tokens) / original_tokens) * 100
+            print(f"[LLMLingua] Split into {len(chunks)} chunks for processing")
             
-            print(f"[LLMLingua] Compressed: {original_tokens} → {compressed_tokens} tokens ({reduction:.1f}% reduction)")
+            # Compress each chunk separately
+            compressed_chunks = []
+            total_original_tokens = 0
+            total_compressed_tokens = 0
             
-            return compressed_text
+            for idx, chunk in enumerate(chunks):
+                try:
+                    compressed_result = self.compressor.compress_prompt(
+                        chunk,
+                        rate=target_ratio,
+                        force_tokens=['\n', '.', '!', '?', ',']  # Preserve important punctuation
+                    )
+                    
+                    compressed_text = compressed_result['compressed_prompt']
+                    compressed_chunks.append(compressed_text)
+                    
+                    original_tokens = len(chunk.split())
+                    compressed_tokens = len(compressed_text.split())
+                    total_original_tokens += original_tokens
+                    total_compressed_tokens += compressed_tokens
+                    
+                    print(f"[LLMLingua] Chunk {idx + 1}/{len(chunks)}: {original_tokens} → {compressed_tokens} tokens")
+                    
+                except Exception as chunk_error:
+                    print(f"[LLMLingua] Chunk {idx + 1} failed: {str(chunk_error)}, using original")
+                    compressed_chunks.append(chunk)
+                    total_original_tokens += len(chunk.split())
+                    total_compressed_tokens += len(chunk.split())
+            
+            # Combine compressed chunks
+            final_compressed = ' '.join(compressed_chunks)
+            
+            reduction = ((total_original_tokens - total_compressed_tokens) / total_original_tokens) * 100 if total_original_tokens > 0 else 0
+            
+            print(f"[LLMLingua] Total Compressed: {total_original_tokens} → {total_compressed_tokens} tokens ({reduction:.1f}% reduction)")
+            
+            return final_compressed
             
         except Exception as e:
             print(f"[LLMLingua] Compression failed: {str(e)}")

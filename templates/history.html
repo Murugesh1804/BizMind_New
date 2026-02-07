@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html class="light" lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Analysis History - BizMind</title>
+        <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='css/images/fav.png') }}">
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+        rel="stylesheet" />
+
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#13a4ec",
+                        "background-light": "#FBFBFB",
+                        "background-dark": "#101c22",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    }
+                },
+            },
+        }
+    </script>
+
+    <style>
+        .glass-nav {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+
+        .dark .glass-nav {
+            background: rgba(16, 28, 34, 0.7);
+        }
+    </style>
+</head>
+
+<body
+    class="font-display bg-background-light dark:bg-background-dark text-[#111618] dark:text-white transition-colors duration-300">
+    <!-- Fixed Navbar -->
+    <nav class="fixed top-0 left-0 right-0 z-50 glass-nav border-b border-gray-200/50 dark:border-gray-800/50">
+        <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <a href="/">
+                    <img src="{{ url_for('static', filename='css/images/logo_new.png') }}" alt="Logo" width="150">
+                </a>
+            </div>
+            <div class="flex items-center gap-4">
+                <span id="userName" class="text-sm font-semibold text-gray-700 dark:text-gray-300"></span>
+                <a href="/"
+                    class="text-sm font-semibold text-gray-700 dark:text-gray-300 hover:text-primary transition-colors">New
+                    Analysis</a>
+                <button id="logoutBtn"
+                    class="bg-gray-100 dark:bg-gray-800 px-5 py-2 rounded-full text-sm font-bold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all">
+                    Logout
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="pt-32 pb-20 px-6 max-w-7xl mx-auto">
+        <!-- Header -->
+        <div class="mb-10">
+            <h1 class="text-4xl md:text-5xl font-extrabold text-gray-900 dark:text-white mb-3">Analysis History</h1>
+            <p class="text-lg text-gray-600 dark:text-gray-400">View and manage your past business location analyses</p>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loadingState" class="text-center py-20">
+            <span class="material-symbols-outlined text-6xl text-primary animate-spin">refresh</span>
+            <p class="mt-4 text-gray-600 dark:text-gray-400">Loading your analyses...</p>
+        </div>
+
+        <!-- Empty State -->
+        <div id="emptyState" class="hidden text-center py-20">
+            <span class="material-symbols-outlined text-6xl text-gray-400">history</span>
+            <h3 class="mt-4 text-xl font-bold text-gray-900 dark:text-white">No analyses yet</h3>
+            <p class="mt-2 text-gray-600 dark:text-gray-400">Start your first business location analysis</p>
+            <a href="/"
+                class="mt-6 inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-white font-bold px-6 py-3 rounded-xl shadow-lg shadow-primary/30 transition-all">
+                <span>New Analysis</span>
+                <span class="material-symbols-outlined">arrow_forward</span>
+            </a>
+        </div>
+
+        <!-- Analyses Grid -->
+        <div id="analysesGrid" class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Analysis cards will be inserted here -->
+        </div>
+
+        <!-- Pagination -->
+        <div id="pagination" class="hidden mt-10 flex items-center justify-center gap-4">
+            <button id="prevPage" disabled
+                class="px-4 py-2 bg-gray-100 dark:bg-gray-800 rounded-lg font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
+                Previous
+            </button>
+            <span id="pageInfo" class="text-sm font-semibold text-gray-600 dark:text-gray-400"></span>
+            <button id="nextPage" disabled
+                class="px-4 py-2 bg-gray-100 dark:bg-gray-800 rounded-lg font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
+                Next
+            </button>
+        </div>
+
+        <!-- Analysis Detail Modal -->
+        <div id="analysisModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+            <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+                <!-- Background overlay -->
+                <div class="fixed inset-0 transition-opacity bg-gray-500 dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-75"
+                    onclick="closeModal()"></div>
+
+                <!-- Modal panel -->
+                <div
+                    class="inline-block align-bottom bg-white dark:bg-gray-900 rounded-2xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
+                    <!-- Header -->
+                    <div class="bg-primary px-6 py-4 flex items-center justify-between">
+                        <h3 class="text-xl font-bold text-white">Analysis Details</h3>
+                        <button onclick="closeModal()" class="text-white hover:text-gray-200 transition-colors">
+                            <span class="material-symbols-outlined">close</span>
+                        </button>
+                    </div>
+
+                    <!-- Content -->
+                    <div id="modalContent" class="px-6 py-6 max-h-[70vh] overflow-y-auto">
+                        <!-- Content will be dynamically inserted here -->
+                    </div>
+
+                    <!-- Footer with download buttons -->
+                    <div class="bg-gray-50 dark:bg-gray-800 px-6 py-4 flex items-center justify-between gap-4">
+                        <div class="flex gap-3">
+                            <button id="downloadJSON"
+                                class="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-sm transition-all">
+                                <span class="material-symbols-outlined text-[18px]">download</span>
+                                Download JSON
+                            </button>
+                            <button id="downloadPDF"
+                                class="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-bold text-sm transition-all">
+                                <span class="material-symbols-outlined text-[18px]">picture_as_pdf</span>
+                                Download PDF
+                            </button>
+                        </div>
+                        <button onclick="closeModal()"
+                            class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-white rounded-lg font-bold text-sm transition-all">
+                            Close
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        let currentPage = 1;
+        let totalPages = 1;
+
+        // Check authentication
+        const token = localStorage.getItem('token');
+        if (!token) {
+            window.location.href = '/login';
+        }
+
+        // Display user name
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        document.getElementById('userName').textContent = user.full_name || user.email || '';
+
+        // Logout handler
+        document.getElementById('logoutBtn').addEventListener('click', function () {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = '/login';
+        });
+
+        // Load analyses
+        async function loadAnalyses(page = 1) {
+            const loadingState = document.getElementById('loadingState');
+            const emptyState = document.getElementById('emptyState');
+            const analysesGrid = document.getElementById('analysesGrid');
+            const pagination = document.getElementById('pagination');
+
+            loadingState.classList.remove('hidden');
+            emptyState.classList.add('hidden');
+            analysesGrid.classList.add('hidden');
+            pagination.classList.add('hidden');
+
+            try {
+                const response = await fetch(`/api/history?page=${page}&limit=20`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (response.status === 401) {
+                    // Token expired
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    window.location.href = '/login';
+                    return;
+                }
+
+                const data = await response.json();
+
+                loadingState.classList.add('hidden');
+
+                if (data.analyses.length === 0) {
+                    emptyState.classList.remove('hidden');
+                } else {
+                    analysesGrid.classList.remove('hidden');
+                    renderAnalyses(data.analyses);
+
+                    // Update pagination
+                    currentPage = data.pagination.page;
+                    totalPages = data.pagination.pages;
+                    updatePagination();
+                }
+            } catch (error) {
+                console.error('Error loading analyses:', error);
+                loadingState.classList.add('hidden');
+                emptyState.classList.remove('hidden');
+            }
+        }
+
+        // Render analyses
+        function renderAnalyses(analyses) {
+            const grid = document.getElementById('analysesGrid');
+            grid.innerHTML = '';
+
+            analyses.forEach(analysis => {
+                const card = document.createElement('div');
+                card.className = 'bg-white dark:bg-gray-900 rounded-xl p-6 border border-gray-100 dark:border-gray-800 hover:shadow-xl transition-all cursor-pointer';
+
+                const date = new Date(analysis.created_at).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric'
+                });
+
+                const scoreColor = analysis.success_score >= 7 ? 'text-green-600 dark:text-green-400' :
+                    analysis.success_score >= 5 ? 'text-yellow-600 dark:text-yellow-400' :
+                        'text-red-600 dark:text-red-400';
+
+                card.innerHTML = `
+                    <div class="flex items-start justify-between mb-4">
+                        <div class="flex-1">
+                            <h3 class="font-bold text-lg text-gray-900 dark:text-white mb-1">${analysis.business_name}</h3>
+                            <p class="text-sm text-gray-600 dark:text-gray-400">${analysis.business_type}</p>
+                        </div>
+                        <span class="material-symbols-outlined text-gray-400">location_on</span>
+                    </div>
+                    
+                    <div class="space-y-2 mb-4">
+                        <div class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                            <span class="material-symbols-outlined !text-base">place</span>
+                            <span>${analysis.location}</span>
+                        </div>
+                        <div class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                            <span class="material-symbols-outlined !text-base">calendar_today</span>
+                            <span>${date}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center justify-between pt-4 border-t border-gray-100 dark:border-gray-800">
+                        <div>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider font-bold">Success Score</p>
+                            <p class="text-2xl font-extrabold ${scoreColor}">${analysis.success_score.toFixed(1)}/10</p>
+                        </div>
+                        <button onclick="viewAnalysis(${analysis.id})" class="bg-primary/10 text-primary px-4 py-2 rounded-lg font-bold text-sm hover:bg-primary/20 transition-all">
+                            View Details
+                        </button>
+                    </div>
+                `;
+
+                grid.appendChild(card);
+            });
+        }
+
+        // View analysis details
+        let currentAnalysisId = null;
+
+        async function viewAnalysis(id) {
+            currentAnalysisId = id;
+            try {
+                const response = await fetch(`/api/history/${id}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    const analysis = data.analysis;
+
+                    // Build modal content
+                    const modalContent = document.getElementById('modalContent');
+                    modalContent.innerHTML = `
+                        <div class="space-y-6">
+                            <!-- Business Info -->
+                            <div>
+                                <h4 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">${analysis.business_name}</h4>
+                                <p class="text-gray-600 dark:text-gray-400">${analysis.business_type} • ${analysis.location}</p>
+                                <p class="text-sm text-gray-500 dark:text-gray-500 mt-1">Analyzed on ${new Date(analysis.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                            </div>
+
+                            <!-- Success Score -->
+                            <div class="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 p-4 rounded-xl border border-green-200 dark:border-green-800">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-sm font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider">Success Score</p>
+                                        <p class="text-4xl font-extrabold text-green-600 dark:text-green-400">${analysis.success_score.toFixed(1)}/10</p>
+                                    </div>
+                                    <div class="text-right">
+                                        <p class="text-sm font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider">Recommendation</p>
+                                        <p class="text-lg font-bold text-gray-900 dark:text-white">${analysis.recommendation || 'N/A'}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- AI Strategy (if available) -->
+                            ${analysis.strategy ? `
+                                <div>
+                                    <h5 class="text-lg font-bold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                                        <span class="material-symbols-outlined text-primary">auto_awesome</span>
+                                        AI Strategic Analysis
+                                    </h5>
+                                    <div class="space-y-4">
+                                        ${analysis.strategy.sentiment ? `
+                                            <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+                                                <p class="font-bold text-sm text-primary mb-2">Customer Sentiment</p>
+                                                <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">${analysis.strategy.sentiment}</p>
+                                            </div>
+                                        ` : ''}
+                                        ${analysis.strategy.opportunity ? `
+                                            <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+                                                <p class="font-bold text-sm text-primary mb-2">Market Opportunity</p>
+                                                <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">${analysis.strategy.opportunity}</p>
+                                            </div>
+                                        ` : ''}
+                                        ${analysis.strategy.recommendations ? `
+                                            <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+                                                <p class="font-bold text-sm text-primary mb-2">Strategic Recommendations</p>
+                                                <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">${analysis.strategy.recommendations}</p>
+                                            </div>
+                                        ` : ''}
+                                    </div>
+                                </div>
+                            ` : ''}
+
+                            <!-- Competitors -->
+                            ${analysis.competitors && analysis.competitors.length > 0 ? `
+                                <div>
+                                    <h5 class="text-lg font-bold text-gray-900 dark:text-white mb-3">Top Competitors</h5>
+                                    <div class="space-y-2">
+                                        ${analysis.competitors.slice(0, 5).map((comp, idx) => `
+                                            <div class="flex items-center justify-between bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
+                                                <div class="flex-1">
+                                                    <p class="font-bold text-sm text-gray-900 dark:text-white">${idx + 1}. ${comp.name}</p>
+                                                    <p class="text-xs text-gray-600 dark:text-gray-400">${comp.address || 'N/A'}</p>
+                                                </div>
+                                                <div class="text-right">
+                                                    <p class="text-sm font-bold text-yellow-600 dark:text-yellow-400">★ ${comp.rating.toFixed(1)}</p>
+                                                    <p class="text-xs text-gray-500">${comp.reviews_count} reviews</p>
+                                                </div>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+
+                    // Show modal
+                    document.getElementById('analysisModal').classList.remove('hidden');
+                }
+            } catch (error) {
+                console.error('Error loading analysis:', error);
+                alert('Failed to load analysis details. Please try again.');
+            }
+        }
+
+        // Close modal
+        function closeModal() {
+            document.getElementById('analysisModal').classList.add('hidden');
+            currentAnalysisId = null;
+        }
+
+        // Download JSON
+        document.getElementById('downloadJSON').addEventListener('click', async function () {
+            if (!currentAnalysisId) return;
+
+            try {
+                const response = await fetch(`/api/history/${currentAnalysisId}/download?format=json`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `analysis_${currentAnalysisId}.json`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                } else {
+                    alert('Failed to download JSON. Please try again.');
+                }
+            } catch (error) {
+                console.error('Download error:', error);
+                alert('Failed to download JSON. Please try again.');
+            }
+        });
+
+        // Download PDF (opens in new window for printing)
+        document.getElementById('downloadPDF').addEventListener('click', function () {
+            if (!currentAnalysisId) return;
+            window.open(`/api/history/${currentAnalysisId}/download?format=pdf`, '_blank');
+        });
+
+        // Update pagination
+        function updatePagination() {
+            const pagination = document.getElementById('pagination');
+            const prevBtn = document.getElementById('prevPage');
+            const nextBtn = document.getElementById('nextPage');
+            const pageInfo = document.getElementById('pageInfo');
+
+            if (totalPages > 1) {
+                pagination.classList.remove('hidden');
+                pageInfo.textContent = `Page ${currentPage} of ${totalPages}`;
+
+                prevBtn.disabled = currentPage === 1;
+                nextBtn.disabled = currentPage === totalPages;
+            }
+        }
+
+        // Pagination handlers
+        document.getElementById('prevPage').addEventListener('click', function () {
+            if (currentPage > 1) {
+                loadAnalyses(currentPage - 1);
+            }
+        });
+
+        document.getElementById('nextPage').addEventListener('click', function () {
+            if (currentPage < totalPages) {
+                loadAnalyses(currentPage + 1);
+            }
+        });
+
+        // Load initial data
+        loadAnalyses();
+    </script>
+</body>
+
+</html>
