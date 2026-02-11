@@ -2,7 +2,7 @@
 
 /* ===== Global Styles ===== */
 :root {
-    --primary-color: #0d6efd;
+    --primary-color: #13a4ec;
     --success-color: #198754;
     --warning-color: #ffc107;
     --danger-color: #dc3545;
@@ -25,7 +25,7 @@ body {
 
 /* ===== Navigation ===== */
 .navbar {
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .navbar-brand {
@@ -118,7 +118,7 @@ body {
 .btn-primary:hover {
     background-color: #0b5ed7;
     transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
 /* ===== How It Works Section ===== */
@@ -157,7 +157,7 @@ body {
     background: white;
     padding: 30px;
     border-radius: 15px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     margin-bottom: 30px;
 }
 
@@ -194,7 +194,7 @@ body {
     background: white;
     padding: 20px;
     border-radius: 12px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     display: flex;
     align-items: center;
     gap: 15px;
@@ -204,7 +204,7 @@ body {
 
 .metric-card:hover {
     transform: translateY(-5px);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
 
 .metric-icon {
@@ -239,7 +239,7 @@ body {
     background: white;
     padding: 25px;
     border-radius: 12px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     margin-bottom: 20px;
 }
 
@@ -279,7 +279,7 @@ body {
     background: white;
     padding: 60px;
     border-radius: 20px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
     max-width: 600px;
     width: 90%;
 }
@@ -289,10 +289,13 @@ body {
 }
 
 @keyframes pulse {
-    0%, 100% {
+
+    0%,
+    100% {
         transform: scale(1);
         opacity: 1;
     }
+
     50% {
         transform: scale(1.1);
         opacity: 0.8;
@@ -341,20 +344,20 @@ body {
     .hero-section {
         padding: 40px 0;
     }
-    
+
     .dashboard-hero {
         text-align: center;
     }
-    
+
     .success-score-card {
         margin-top: 20px;
     }
-    
+
     .metric-card {
         flex-direction: column;
         text-align: center;
     }
-    
+
     .loading-container {
         padding: 40px 20px;
     }
@@ -362,11 +365,16 @@ body {
 
 /* ===== Print Styles ===== */
 @media print {
-    .navbar, .footer, .btn {
+
+    .navbar,
+    .footer,
+    .btn {
         display: none;
     }
-    
-    .dashboard-hero, .metric-card, .insight-card {
+
+    .dashboard-hero,
+    .metric-card,
+    .insight-card {
         box-shadow: none;
         border: 1px solid #dee2e6;
     }

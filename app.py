@@ -43,6 +43,91 @@ auth_manager = create_auth_manager()
 
 
 # ============================================================================
+# HELPER FUNCTIONS
+# ============================================================================
+
+def fetch_customer_base_data(lat, lon, radius):
+    """
+    Fetch customer base indicators around a location (OPTIMIZED with parallel calls)
+    
+    Args:
+        lat (float): Latitude
+        lon (float): Longitude
+        radius (int): Search radius in meters
+        
+    Returns:
+        dict: Customer base metrics and score
+    """
+    import requests
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    
+    PLACES_URL = "https://maps.googleapis.com/maps/api/place/nearbysearch/json"
+    API_KEY = os.getenv("GOOGLE_MAP_API")
+    
+    def get_places(place_type):
+        """Fetch places of a specific type"""
+        params = {
+            "location": f"{lat},{lon}",
+            "radius": radius,
+            "type": place_type,
+            "key": API_KEY,
+        }
+        try:
+            res = requests.get(PLACES_URL, params=params, timeout=5)
+            return place_type, res.json().get("results", [])
+        except Exception as e:
+            print(f"[WARN] Failed to fetch {place_type}: {str(e)}")
+            return place_type, []
+    
+    # Fetch all place types in parallel (much faster!)
+    place_types = ["apartment", "school", "university", "office", 
+                   "bus_station", "subway_station", "cafe", "restaurant"]
+    
+    data = {}
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        futures = {executor.submit(get_places, ptype): ptype for ptype in place_types}
+        for future in as_completed(futures):
+            place_type, results = future.result()
+            data[place_type] = results
+    
+    # Calculate counts
+    apartments_count = len(data.get("apartment", []))
+    education_count = len(data.get("school", [])) + len(data.get("university", []))
+    offices_count = len(data.get("office", []))
+    transit_count = len(data.get("bus_station", [])) + len(data.get("subway_station", []))
+    competitors_count = len(data.get("cafe", [])) + len(data.get("restaurant", []))
+    
+    # Calculate customer score (0-100 scale)
+    customer_score = (
+        apartments_count * 0.4
+        + education_count * 0.2
+        + offices_count * 0.2
+        + transit_count * 0.1
+        - competitors_count * 0.1
+    )
+    customer_score = max(0, min(100, customer_score))  # Clamp to 0-100
+    
+    # Prepare heatmap points (cafes + restaurants as demand signal)
+    heatmap_points = [
+        {
+            "lat": p["geometry"]["location"]["lat"],
+            "lng": p["geometry"]["location"]["lng"],
+            "intensity": 1.0
+        }
+        for p in (data.get("cafe", []) + data.get("restaurant", []))
+    ]
+    
+    return {
+        "apartments_count": apartments_count,
+        "education_count": education_count,
+        "offices_count": offices_count,
+        "transit_count": transit_count,
+        "customer_score": round(customer_score, 2),
+        "heatmap_points": heatmap_points
+    }
+
+
+# ============================================================================
 # AUTHENTICATION ROUTES
 # ============================================================================
 
@@ -318,11 +403,47 @@ def analyze():
         print(f"[INFO] Engineering features from {len(competitors_data)} competitors")
         features = feature_engineer.calculate_features(competitors_data)
         
-        # Step 5: Compress review data using LLMLingua
+        # Step 4.5: Fetch customer base data
+        print("[INFO] Fetching customer base indicators...")
+        customer_base = {}
+        if latitude and longitude:
+            try:
+                customer_base = fetch_customer_base_data(float(latitude), float(longitude), radius)
+                print(f"[INFO] Customer Score: {customer_base.get('customer_score', 0)}/100")
+                print(f"[INFO] Found {customer_base.get('apartments_count', 0)} apartments, "
+                      f"{customer_base.get('education_count', 0)} education centers, "
+                      f"{customer_base.get('offices_count', 0)} offices, "
+                      f"{customer_base.get('transit_count', 0)} transit points")
+            except Exception as e:
+                print(f"[WARN] Customer base fetching failed: {str(e)}")
+                # Continue without customer base data
+                customer_base = {
+                    "apartments_count": 0,
+                    "education_count": 0,
+                    "offices_count": 0,
+                    "transit_count": 0,
+                    "customer_score": 0,
+                    "heatmap_points": []
+                }
+        else:
+            print("[WARN] No coordinates available, skipping customer base analysis")
+            customer_base = {
+                "apartments_count": 0,
+                "education_count": 0,
+                "offices_count": 0,
+                "transit_count": 0,
+                "customer_score": 0,
+                "heatmap_points": []
+            }
+        
+        # Step 5: Compress review data using LLMLingua (limit to 50 reviews for speed)
         print("[INFO] Compressing review data with LLMLingua")
         all_reviews = []
         for comp in competitors_data:
             all_reviews.extend(comp.get('reviews', []))
+        
+        # Limit to 50 most recent/relevant reviews for faster processing
+        all_reviews = all_reviews[:50]
         
         compressed_reviews = compressor.compress_reviews(all_reviews)
         
@@ -335,7 +456,8 @@ def analyze():
             owner_type=owner_type,
             features=features,
             compressed_reviews=compressed_reviews,
-            competitors=competitors_data
+            competitors=competitors_data,
+            customer_base=customer_base  # NEW: Pass customer base data
         )
         
         # Step 7: Save analysis to database
@@ -376,15 +498,25 @@ def analyze():
             'business_type': business_type,
             'location': location,
             'owner_type': owner_type,
+            'lat': float(latitude) if latitude else None,
+            'lon': float(longitude) if longitude else None,
+            'radius': radius,
             'success_score': features['success_score'],
             'recommendation': features['recommendation'],
             'features': features,
             'ai_insights': ai_insights,
-            'competitors': competitors_data[:10]  # Top 10 for display
+            'competitors': competitors_data[:10],  # Top 10 for display
+            # Customer base data
+            'customer_score': customer_base.get('customer_score', 0),
+            'apartments_count': customer_base.get('apartments_count', 0),
+            'education_count': customer_base.get('education_count', 0),
+            'offices_count': customer_base.get('offices_count', 0),
+            'transit_count': customer_base.get('transit_count', 0),
+            'heatmap_data': customer_base.get('heatmap_points', [])
         }
         
         # Render dashboard with results
-        return render_template('dashboard.html', data=response_data)
+        return render_template('dashboard.html', data=response_data, google_api_key=os.getenv('GOOGLE_MAP_API'))
         
     except Exception as e:
         print(f"[ERROR] Analysis failed: {str(e)}")
@@ -571,6 +703,58 @@ def loading():
     Loading page shown during analysis
     """
     return render_template('loading.html')
+
+
+@app.route('/api/chat', methods=['POST'])
+def chat():
+    """
+    Chatbot endpoint for bBot
+    
+    Expected JSON:
+    {
+        "message": "User's message"
+    }
+    """
+    try:
+        data = request.get_json()
+        message = data.get('message', '').strip()
+        
+        if not message:
+            return jsonify({
+                'error': 'Missing message',
+                'message': 'Please provide a message'
+            }), 400
+        
+        # Get user context if authenticated
+        context = None
+        auth_header = request.headers.get('Authorization', '')
+        if auth_header.startswith('Bearer '):
+            try:
+                token = auth_header.split(' ')[1]
+                payload = auth_manager.verify_token(token)
+                if payload:
+                    user_id = payload.get('user_id')
+                    # Get user's latest analysis for context
+                    analyses = db.get_user_analyses(user_id, limit=1, offset=0)
+                    if analyses:
+                        latest = analyses[0]
+                        context = f"User's latest analysis: {latest['business_name']} ({latest['business_type']}) in {latest['location']}, Success Score: {latest['success_score']}/10"
+            except:
+                pass  # Continue without context if token verification fails
+        
+        # Generate response using Groq
+        response_text = openrouter_client.chat(message, context)
+        
+        return jsonify({
+            'response': response_text
+        }), 200
+        
+    except Exception as e:
+        print(f"[ERROR] Chat failed: {str(e)}")
+        return jsonify({
+            'error': 'Chat failed',
+            'message': 'Sorry, I encountered an error. Please try again.'
+        }), 500
 
 
 @app.errorhandler(404)

@@ -29,3 +29,11 @@ email-validator==2.1.0
 
 # Optional: Development Tools
 # flask-cors==4.0.0  # Uncomment if needed for CORS
+
+groq
+langchain
+faiss-cpu
+pypdf
+sentence-transformers
+python-dotenv
+tqdm

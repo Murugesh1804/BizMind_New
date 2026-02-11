@@ -20,7 +20,13 @@
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
-    <script id="tailwind-config">
+    <!-- Google Maps JavaScript API with visualization library -->
+    <script
+        src="https://maps.googleapis.com/maps/api/js?key={{ google_api_key }}&libraries=visualization&callback=initializeHeatmap"
+        async defer></script>
+
+
+    <script>
         tailwind.config = {
             darkMode: "class",
             theme: {
@@ -190,7 +196,7 @@
         </div>
 
         <!-- Key Metrics -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
             <!-- Competition -->
             <div class="glass-card rounded-xl p-5 shadow-sm flex flex-col gap-3">
                 <div class="flex justify-between items-start">
@@ -270,6 +276,41 @@
                     <canvas id="opportunityMiniChart"></canvas>
                 </div>
             </div>
+
+            <!-- Customer Base Score -->
+            <div class="glass-card rounded-xl p-5 shadow-sm flex flex-col gap-3">
+                <div class="flex justify-between items-start">
+                    <div class="bg-indigo-100 dark:bg-indigo-900/40 p-2 rounded-lg text-indigo-600">
+                        <span class="material-symbols-outlined">groups</span>
+                    </div>
+                    <div
+                        class="text-xs font-bold text-indigo-600 bg-indigo-100 dark:bg-indigo-900/30 px-2 py-0.5 rounded-full">
+                        Demographics
+                    </div>
+                </div>
+                <div>
+                    <p class="text-[#617589] dark:text-gray-400 text-sm font-medium">Customer Base</p>
+                    <p class="text-2xl font-bold">{{ data.customer_score|default(0)|round(1) }}/100</p>
+                </div>
+                <div class="text-xs text-[#617589] dark:text-gray-400 space-y-1">
+                    <div class="flex justify-between">
+                        <span>🏢 Apartments:</span>
+                        <strong>{{ data.apartments_count|default(0) }}</strong>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>🎓 Education:</span>
+                        <strong>{{ data.education_count|default(0) }}</strong>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>💼 Offices:</span>
+                        <strong>{{ data.offices_count|default(0) }}</strong>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>🚇 Transit:</span>
+                        <strong>{{ data.transit_count|default(0) }}</strong>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Strategic Insights Grid -->
@@ -287,7 +328,7 @@
                     <h4 class="font-bold text-primary">Customer Sentiment</h4>
                 </div>
                 <div class="text-sm ai-insight-content" data-section="sentiment">
-                    {{ data.ai_insights.sentiment|safe }}
+                    {{ data.ai_insights.sentiment }}
                 </div>
             </div>
 
@@ -301,7 +342,7 @@
                     <h4 class="font-bold text-primary">Market Opportunity</h4>
                 </div>
                 <div class="text-sm ai-insight-content" data-section="opportunity">
-                    {{ data.ai_insights.opportunity|safe }}
+                    {{ data.ai_insights.opportunity }}
                 </div>
             </div>
 
@@ -315,7 +356,7 @@
                     <h4 class="font-bold text-primary">Pricing Strategy</h4>
                 </div>
                 <div class="text-sm ai-insight-content" data-section="pricing">
-                    {{ data.ai_insights.pricing|safe }}
+                    {{ data.ai_insights.pricing }}
                 </div>
             </div>
 
@@ -329,7 +370,21 @@
                     <h4 class="font-bold text-amber-600">Potential Risks</h4>
                 </div>
                 <div class="text-sm ai-insight-content" data-section="risks">
-                    {{ data.ai_insights.risks|safe }}
+                    {{ data.ai_insights.risks }}
+                </div>
+            </div>
+
+            <!-- Customer Base Analysis -->
+            <div
+                class="bg-white dark:bg-[#1a2533] p-6 rounded-xl border border-[#f0f2f4] dark:border-white/5 shadow-sm">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="p-2 rounded-lg bg-indigo-100 text-indigo-600">
+                        <span class="material-symbols-outlined">groups</span>
+                    </div>
+                    <h4 class="font-bold text-indigo-600">Customer Base Analysis</h4>
+                </div>
+                <div class="text-sm ai-insight-content" data-section="customer_base">
+                    {{ data.ai_insights.customer_base|default("No customer base analysis available") }}
                 </div>
             </div>
         </div>
@@ -345,8 +400,22 @@
                     <h4 class="font-bold text-primary text-lg">Strategic Recommendations</h4>
                 </div>
                 <div class="text-sm ai-insight-content" data-section="recommendations">
-                    {{ data.ai_insights.recommendations|safe }}
+                    {{ data.ai_insights.recommendations }}
                 </div>
+            </div>
+        </div>
+
+        <!-- Customer Base Heatmap -->
+        <div class="mb-12">
+            <h3 class="text-xl font-bold mb-5 flex items-center gap-2">
+                <span class="material-symbols-outlined text-indigo-600">map</span> Customer Density Heatmap
+            </h3>
+            <div
+                class="bg-white dark:bg-[#1a2533] p-6 rounded-xl border border-[#f0f2f4] dark:border-white/5 shadow-sm">
+                <div id="heatmap" style="height: 500px; border-radius: 8px;"></div>
+                <p class="text-xs text-[#617589] dark:text-gray-400 mt-3">
+                    🔴 Red areas indicate higher customer density based on cafes and restaurants in the area
+                </p>
             </div>
         </div>
 
@@ -491,7 +560,7 @@
         function initializeMiniCharts() {
             const isDarkMode = document.documentElement.classList.contains('dark');
             const textColor = isDarkMode ? '#9ca3af' : '#617589';
-            const features = {{ data.features | tojson
+            const features = {{ data.features| tojson | safe
         }};
 
         // 1. Success Score Doughnut Chart
@@ -735,8 +804,9 @@
             Chart.defaults.font.family = 'Manrope, sans-serif';
 
             // 1. Competitor Comparison Chart (Bar Chart)
-            const competitors = {{ data.competitors[:5] | tojson
+            const competitors = {{ data.competitors[:5]| tojson | safe
         }};
+
         const competitorNames = competitors.map(c => c.name.substring(0, 20) + (c.name.length > 20 ? '...' : ''));
         const competitorRatings = competitors.map(c => c.rating);
         const competitorReviews = competitors.map(c => c.reviews_count);
@@ -813,7 +883,6 @@
         });
 
         // 2. Market Metrics Radar Chart
-        const features = {{ data.features | tojson }};
         new Chart(document.getElementById('metricsChart'), {
             type: 'radar',
             data: {
@@ -989,7 +1058,94 @@
                     }
                 }
             }
+        });   // closes new Chart()
+}     // closes initializeCharts()
+
+
+        // Initialize heatmap with Google Maps
+        function initializeHeatmap() {
+            const heatmapData = {{ data.heatmap_data | tojson | safe
+        }};
+        const lat = {{ data.lat|default (0) }};
+        const lon = {{ data.lon|default (0) }};
+        const radius = {{ data.radius|default (500) }};
+
+        if (!lat || !lon || !heatmapData || heatmapData.length === 0) {
+            document.getElementById('heatmap').innerHTML =
+                '<div class="flex items-center justify-center h-full text-gray-400">' +
+                '<p>No heatmap data available for this location</p></div>';
+            return;
+        }
+
+        // Initialize Google Map
+        const map = new google.maps.Map(document.getElementById('heatmap'), {
+            center: { lat: lat, lng: lon },
+            zoom: 14,
+            mapTypeId: 'roadmap',
+            styles: [
+                {
+                    featureType: 'poi',
+                    elementType: 'labels',
+                    stylers: [{ visibility: 'off' }]
+                }
+            ]
         });
+
+        // Add search location marker
+        new google.maps.Marker({
+            position: { lat: lat, lng: lon },
+            map: map,
+            title: 'Search Location',
+            icon: {
+                url: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png'
+            }
+        });
+
+        // Add search radius circle
+        new google.maps.Circle({
+            strokeColor: '#3b82f6',
+            strokeOpacity: 0.8,
+            strokeWeight: 2,
+            fillColor: '#3b82f6',
+            fillOpacity: 0.15,
+            map: map,
+            center: { lat: lat, lng: lon },
+            radius: radius
+        });
+
+        // Prepare heatmap points for Google Maps
+        const heatPoints = heatmapData.map(point => {
+            return {
+                location: new google.maps.LatLng(point.lat, point.lng),
+                weight: point.intensity || 1.0
+            };
+        });
+
+        // Add heatmap layer
+        if (heatPoints.length > 0) {
+            const heatmap = new google.maps.visualization.HeatmapLayer({
+                data: heatPoints,
+                map: map,
+                radius: 25,
+                opacity: 0.7,
+                gradient: [
+                    'rgba(0, 255, 255, 0)',
+                    'rgba(0, 255, 255, 1)',
+                    'rgba(0, 191, 255, 1)',
+                    'rgba(0, 127, 255, 1)',
+                    'rgba(0, 63, 255, 1)',
+                    'rgba(0, 0, 255, 1)',
+                    'rgba(0, 0, 223, 1)',
+                    'rgba(0, 0, 191, 1)',
+                    'rgba(0, 0, 159, 1)',
+                    'rgba(0, 0, 127, 1)',
+                    'rgba(63, 0, 91, 1)',
+                    'rgba(127, 0, 63, 1)',
+                    'rgba(191, 0, 31, 1)',
+                    'rgba(255, 0, 0, 1)'
+                ]
+            });
+        }
         }
 
         // Initialize charts when page loads
@@ -998,6 +1154,9 @@
             initializeCharts();
         });
     </script>
+
+    <!-- bBot Chatbot -->
+    {% include 'components/chatbot.html' %}
 </body>
 
 </html>

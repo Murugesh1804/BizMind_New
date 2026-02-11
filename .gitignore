@@ -44,3 +44,5 @@ instance/
 # LLMLingua cache
 .cache/
 models/
+
+data/

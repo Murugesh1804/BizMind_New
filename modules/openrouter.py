@@ -1,13 +1,16 @@
 """
-Groq LLM Integration Module
+Groq LLM Integration Module with RAG Support
 
-This module handles AI insight generation using Groq API.
+This module handles AI insight generation using Groq API with RAG capabilities.
 Groq provides fast, high-quality AI responses for business insights.
+RAG integration allows the AI to supplement analysis with domain knowledge.
 """
 
 from groq import Groq
 import os
 import re
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_community.vectorstores import FAISS
 
 
 class OpenRouterClient:
@@ -15,18 +18,81 @@ class OpenRouterClient:
     Client for Groq API (renamed from OpenRouterClient for compatibility)
     """
     
-    def __init__(self, api_key):
+    def __init__(self, api_key, enable_rag=True, vectordb_path="vectordb"):
         """
-        Initialize Groq client
+        Initialize Groq client with optional RAG support
         
         Args:
             api_key (str): Groq API key
+            enable_rag (bool): Whether to enable RAG capabilities
+            vectordb_path (str): Path to FAISS vector database
         """
         self.client = Groq(api_key=api_key)
         self.model = "groq/compound"  # Groq's compound model
+        self.enable_rag = enable_rag
+        self.vectorstore = None
+        
+        # Initialize RAG components if enabled
+        if self.enable_rag:
+            try:
+                print("[RAG] Initializing vector database...")
+                embeddings = HuggingFaceEmbeddings(
+                    model_name="sentence-transformers/all-MiniLM-L6-v2"
+                )
+                self.vectorstore = FAISS.load_local(
+                    vectordb_path, 
+                    embeddings, 
+                    allow_dangerous_deserialization=True
+                )
+                print("[RAG] Vector database loaded successfully")
+            except Exception as e:
+                print(f"[RAG WARNING] Could not load vector database: {str(e)}")
+                print("[RAG] Continuing without RAG support")
+                self.enable_rag = False
+    
+    def _retrieve_rag_context(self, business_type, location, features):
+        """
+        Retrieve relevant context from RAG vector database
+        
+        Args:
+            business_type (str): Type of business
+            location (str): Location
+            features (dict): Calculated features
+            
+        Returns:
+            str: Retrieved context from knowledge base
+        """
+        if not self.enable_rag or not self.vectorstore:
+            return ""
+        
+        try:
+            # Build query for RAG retrieval
+            query = f"""
+            Business type: {business_type}
+            Location: {location}
+            Competition level: {features.get('competition_level', 'Unknown')}
+            Demand level: {features.get('demand_level', 'Unknown')}
+            Success score: {features.get('success_score', 0)}/10
+            
+            What are the key considerations, risks, and strategies for this type of business in India?
+            """
+            
+            # Retrieve relevant documents
+            docs = self.vectorstore.similarity_search(query, k=3)
+            
+            if docs:
+                context = "\n\n".join([doc.page_content for doc in docs])
+                print(f"[RAG] Retrieved {len(docs)} relevant documents from knowledge base")
+                return context
+            else:
+                return ""
+                
+        except Exception as e:
+            print(f"[RAG ERROR] Failed to retrieve context: {str(e)}")
+            return ""
     
     def generate_insights(self, business_name, business_type, location, owner_type, 
-                         features, compressed_reviews, competitors):
+                         features, compressed_reviews, competitors, customer_base=None):
         """
         Generate AI-powered business insights
         
@@ -43,10 +109,16 @@ class OpenRouterClient:
             dict: AI-generated insights
         """
         try:
+            # Retrieve relevant context from RAG if enabled
+            rag_context = ""
+            if self.enable_rag:
+                print("[RAG] Retrieving relevant knowledge from database...")
+                rag_context = self._retrieve_rag_context(business_type, location, features)
+            
             # Build structured prompt
             prompt = self._build_prompt(
                 business_name, business_type, location, owner_type,
-                features, compressed_reviews, competitors
+                features, compressed_reviews, competitors, rag_context, customer_base
             )
             
             # Call Groq API
@@ -64,64 +136,133 @@ class OpenRouterClient:
             return self._get_fallback_insights()
     
     def _build_prompt(self, business_name, business_type, location, owner_type,
-                     features, compressed_reviews, competitors):
+                     features, compressed_reviews, competitors, rag_context="", customer_base=None):
         """
-        Build structured prompt for LLM
+        Build structured prompt for LLM with optional RAG context
+        
+        Args:
+            rag_context (str): Additional context from RAG knowledge base
         
         Returns:
             str: Formatted prompt
         """
-        prompt = f"""You are a business location analysis expert. Analyze the following data and provide actionable insights.
+        # Build RAG context section if available
+        rag_section = ""
+        if rag_context:
+            rag_section = f"""
+SUPPLEMENTAL KNOWLEDGE BASE (Use only when provided data is incomplete)
+{rag_context}
 
-**Business Information:**
-- Name: {business_name}
-- Type: {business_type}
-- Location: {location}
-- Owner: {owner_type.capitalize()} business owner
+NOTE: The above is general domain knowledge. Use it ONLY to support reasoning when 
+the provided data below is insufficient. Always prioritize the actual data.
+"""
+        
+        prompt = f"""You are a senior Indian retail market strategist with 20+ years of experience
+in MSME success, street-level retail economics, and consumer behavior in India.
 
-**Market Metrics:**
+CRITICAL GUIDELINES:
+- Use the provided context as the PRIMARY source of truth.
+- You MAY use your general knowledge to support reasoning ONLY when the context is incomplete.
+- If you use knowledge outside the context, clearly say: "This part is based on general business knowledge, not the provided sources."
+- Do NOT invent Indian statistics, policies, or market facts.
+- If the question cannot be answered from context or safe general knowledge, reply: "I don't have enough reliable data to answer this."
+
+IMPORTANT RULES:
+- Base conclusions ONLY on the provided data and realistic Indian market behavior.
+- Do NOT assume Western pricing, demand, or customer psychology.
+- If data is insufficient, state the uncertainty clearly.
+- Think step-by-step internally, but output only the final structured insights.
+- Prioritize practical, low-budget, high-ROI strategies suitable for Indian SMEs.
+
+{rag_section}
+
+BUSINESS CONTEXT (PRIMARY DATA - HIGHEST PRIORITY)
+Name: {business_name}
+Type: {business_type}
+Location: {location}
+Owner Type: {owner_type.capitalize()} entrepreneur
+
+MARKET METRICS
 - Competitor Count: {features['competitor_count']}
-- Average Rating: {features['avg_rating']}/5.0
+- Average Rating: {features['avg_rating']}/5
 - Total Reviews: {features['total_reviews']}
 - Competition Level: {features['competition_level']}
 - Demand Level: {features['demand_level']}
 - Success Score: {features['success_score']}/10
 
-**Customer Reviews Summary:**
+CUSTOMER BASE INDICATORS
+- Residential Density: {customer_base.get('apartments_count', 0) if customer_base else 0} apartments
+- Education Centers: {customer_base.get('education_count', 0) if customer_base else 0} schools/universities
+- Office Spaces: {customer_base.get('offices_count', 0) if customer_base else 0} commercial buildings
+- Transit Access: {customer_base.get('transit_count', 0) if customer_base else 0} stations/stops
+- Customer Score: {customer_base.get('customer_score', 0) if customer_base else 0}/100
+
+CUSTOMER BASE CONTEXT:
+- High apartment density = strong residential customer base
+- Education centers = student demographics (price-sensitive, high volume)
+- Office spaces = working professionals (higher spending power)
+- Transit access = better footfall and accessibility
+
+CUSTOMER REVIEW SIGNALS
 {compressed_reviews[:1000]}
 
-**Top Competitors:**
+TOP LOCAL COMPETITORS
 {self._format_competitors(competitors[:5])}
 
-**Task:** Provide a structured analysis with the following sections. Use EXACTLY these headers:
+ANALYSIS FRAMEWORK (Indian MSME Logic)
+
+While reasoning, consider:
+- Footfall economics vs rent sensitivity
+- Price elasticity of middle-income Indian consumers
+- Local competition clustering
+- Trust factors: hygiene, consistency, friendliness, speed
+- Fast payback period (<6 months preferred for SMEs)
+
+OUTPUT FORMAT — FOLLOW STRICTLY
 
 ### Customer Sentiment Insights
-- What do customers value most?
-- Common complaints or gaps in service?
-- Key sentiment patterns
+Provide 2-4 bullets covering:
+- Core customer expectations
+- Pain points or dissatisfaction
+- Emotional sentiment pattern
 
 ### Market Opportunity Analysis
-- Is there demand for this business type?
-- What opportunities exist?
-- Market gaps to exploit
+Provide 2-4 bullets covering:
+- Real demand strength in this locality
+- Underserved niches or gaps
+- Feasibility for a new entrant
 
 ### Pricing Strategy
-- Suggested price range
-- Positioning (budget/mid-range/premium)
-- Competitive pricing insights
+Provide 2-4 bullets covering:
+- Realistic Indian price band in ₹
+- Positioning (budget / mid / premium)
+- Tactical pricing move to win customers
+
+### Customer Base Analysis
+Provide 2-4 bullets covering:
+- Primary customer segments in this area (residential/students/professionals)
+- Expected footfall patterns and peak hours
+- Demographic advantages for this specific business type
+- Accessibility and convenience factors
 
 ### Risk Factors
-- Key challenges
-- Competition concerns
-- Market saturation risks
+Provide 2-4 bullets covering:
+- Operational or financial risks
+- Competition pressure
+- Probability of failure (Low / Medium / High)
 
 ### Strategic Recommendations
-- Specific actionable advice
-- Differentiation strategies
-- Implementation priorities
-- Quick wins
+Provide 3-5 highly practical actions:
+- Differentiation strategy suited for this exact location
+- First 30-day execution plan
+- One quick-win tactic to generate daily cash flow
 
-Keep each section concise (2-4 bullet points). Use bullet points with clear, actionable insights."""
+STYLE RULES
+- Use concise bullet points only.
+- No generic advice.
+- No long paragraphs.
+- Focus on actionable Indian ground reality.
+"""
 
         return prompt
     
@@ -178,6 +319,7 @@ Keep each section concise (2-4 bullet points). Use bullet points with clear, act
             'sentiment': self._extract_section_improved(response_text, "Customer Sentiment"),
             'opportunity': self._extract_section_improved(response_text, "Market Opportunity"),
             'pricing': self._extract_section_improved(response_text, "Pricing Strategy"),
+            'customer_base': self._extract_section_improved(response_text, "Customer Base Analysis"),
             'risks': self._extract_section_improved(response_text, "Risk Factors"),
             'recommendations': self._extract_section_improved(response_text, "Strategic Recommendations"),
             'full_analysis': response_text
@@ -201,38 +343,61 @@ Keep each section concise (2-4 bullet points). Use bullet points with clear, act
             section_name (str): Section to extract
             
         Returns:
-            str: Extracted section content with proper formatting
         """
         # Define header patterns for each section
         patterns = {
             "Customer Sentiment": [
+                r'###\s*\d+\.\s*Customer Sentiment',
                 r'###\s*Customer Sentiment',
+                r'\*\*\d+\.\s*Customer Sentiment',
                 r'\*\*Customer Sentiment',
-                r'^\*?\*?1[\.\)]\s*\*?\*?.*Customer Sentiment',
+                r'^\d+\.\s*Customer Sentiment',
                 r'^Customer Sentiment'
             ],
             "Market Opportunity": [
+                r'###\s*\d+\.\s*Market Opportunity',
                 r'###\s*Market Opportunity',
+                r'\*\*\d+\.\s*Market Opportunity',
                 r'\*\*Market Opportunity',
-                r'^\*?\*?2[\.\)]\s*\*?\*?.*Market Opportunity',
+                r'^\d+\.\s*Market Opportunity',
                 r'^Market Opportunity'
             ],
             "Pricing Strategy": [
+                r'###\s*\d+\.\s*Pricing',
                 r'###\s*Pricing Strategy',
+                r'\*\*\d+\.\s*Pricing',
                 r'\*\*Pricing Strategy',
-                r'^\*?\*?3[\.\)]\s*\*?\*?.*Pricing',
+                r'^\d+\.\s*Pricing',
                 r'^Pricing Strategy'
             ],
+            "Customer Base Analysis": [
+                r'###\s*\d+\.\s*Customer Base',
+                r'###\s*Customer Base',
+                r'\*\*\d+\.\s*Customer Base',
+                r'\*\*Customer Base',
+                r'^\d+\.\s*Customer Base',
+                r'^Customer Base Analysis'
+            ],
             "Risk Factors": [
-                r'###\s*Risk',
-                r'\*\*Risk',
-                r'^\*?\*?4[\.\)]\s*\*?\*?.*Risk',
-                r'^Risk Factors'
+                r'###\s*\d+\.\s*Risk Factors',
+                r'###\s*Risk Factors',
+                r'###\s*\d+\.\s*Risks',
+                r'###\s*Risks',
+                r'\*\*\d+\.\s*Risk Factors',
+                r'\*\*Risk Factors',
+                r'\*\*\d+\.\s*Risks',
+                r'\*\*Risks',
+                r'^\d+\.\s*Risk Factors',
+                r'^Risk Factors',
+                r'^\d+\.\s*Risks',
+                r'^Risks'
             ],
             "Strategic Recommendations": [
+                r'###\s*\d+\.\s*Strategic',
                 r'###\s*Strategic Recommendations',
+                r'\*\*\d+\.\s*Strategic',
                 r'\*\*Strategic Recommendations',
-                r'^\*?\*?5[\.\)]\s*\*?\*?.*Strategic',
+                r'^\d+\.\s*Strategic',
                 r'^Strategic Recommendations'
             ]
         }
@@ -331,3 +496,113 @@ Keep each section concise (2-4 bullet points). Use bullet points with clear, act
             'recommendations': "- Verify API keys\n- Check internet connection\n- Retry analysis",
             'full_analysis': "AI analysis temporarily unavailable. Please check your API configuration."
         }
+    
+    def chat(self, message, context=None):
+        """
+        Handle chatbot conversations with RAG support
+        
+        Args:
+            message (str): User's message
+            context (dict): Optional context about current analysis or user
+            
+        Returns:
+            str: Chatbot response
+        """
+        try:
+            # Retrieve RAG context for the user's question if enabled
+            rag_context = ""
+            if self.enable_rag and self.vectorstore:
+                try:
+                    docs = self.vectorstore.similarity_search(message, k=2)
+                    if docs:
+                        rag_context = "\n\n".join([doc.page_content for doc in docs])
+                        print(f"[RAG Chat] Retrieved {len(docs)} relevant documents")
+                except Exception as e:
+                    print(f"[RAG Chat ERROR] {str(e)}")
+            
+            # Build RAG section if available
+            rag_section = ""
+            if rag_context:
+                rag_section = f"""
+
+SUPPLEMENTAL KNOWLEDGE (Use only when needed):
+{rag_context[:800]}
+
+IMPORTANT: Use the above knowledge ONLY to support your response when the user's context 
+is insufficient. Always prioritize the user's specific analysis data if provided.
+If you use this supplemental knowledge, mention: "Based on general business knowledge..."
+"""
+            
+            # Build system prompt for bBot
+            system_prompt = f"""You are **bBot**, the AI assistant for **BizMind – an AI Business Location Decision Support System for India**.
+
+PRIMARY ROLE
+- Help users understand their **business analysis results**
+- Explain **metrics, scores, and insights** in simple terms
+- Answer questions about **location, competition, demand, and pricing**
+- Provide **practical Indian small-business guidance**
+- Guide users in using **BizMind features effectively**
+
+CRITICAL GUIDELINES:
+- Use the provided context as the PRIMARY source of truth.
+- You MAY use general knowledge to support reasoning ONLY when the context is incomplete.
+- If you use knowledge outside the context, clearly say: "This part is based on general business knowledge, not the provided sources."
+- Do NOT invent Indian statistics, policies, or market facts.
+- If the question cannot be answered from context or safe general knowledge, reply: "I don't have enough reliable data to answer this."
+
+RESPONSE STYLE
+- Be **concise, friendly, and professional**
+- Default response length: **under 120 words**
+- Expand only if the user explicitly asks for detail
+- Focus on **clear, actionable insights**, not theory
+- Avoid generic Western business advice — prioritize **Indian MSME reality**
+
+ACCURACY RULES
+- Base explanations only on **BizMind data and realistic Indian market logic**
+- If data is missing or uncertain, **state it clearly**
+- Do **not fabricate numbers, competitors, or market facts**
+- Do **not give legal, financial investment, or medical advice**
+
+FORMATTING GUIDELINES
+- Use **bold** for key terms, metrics, and numbers  
+- Use bullet lists (- item) for grouped insights  
+- Use numbered lists (1. item) for steps or processes  
+- Use tables (| col1 | col2 |) for comparisons  
+- Use `inline code` for technical metrics or feature names  
+- Use short headings when helpful  
+
+BIZMIND FEATURES CONTEXT
+- **Location Analysis** → Uses map data to evaluate suitability  
+- **Competitor Analysis** → Nearby competitor density & ratings  
+- **Success Score (0–10)** → Overall feasibility indicator  
+- **AI Insights** → Strategic recommendations  
+- **Review Analysis** → Customer sentiment patterns  
+- **Market Metrics** → Competition, demand, and pricing signals  
+
+{rag_section}
+
+GOAL
+Help the user make **clear, confident business location decisions in India**.
+"""
+
+            # Add context if available
+            if context:
+                context_str = f"\n\nCurrent User Context:\n{context}"
+                system_prompt += context_str
+
+            # Call Groq API
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": message}
+                ],
+                temperature=0.7,
+                max_tokens=300
+            )
+            
+            return response.choices[0].message.content
+            
+        except Exception as e:
+            print(f"[Groq Chat ERROR] {str(e)}")
+            return "I'm having trouble connecting right now. Please try again in a moment."
