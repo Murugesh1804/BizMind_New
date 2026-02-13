@@ -67,8 +67,11 @@
     <nav class="fixed top-0 left-0 right-0 z-50 glass-nav border-b border-gray-200/50 dark:border-gray-800/50">
         <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
             <div class="flex items-center gap-2">
-                <img src="{{ url_for('static', filename='css/images/logo_new.png') }}" alt="Logo" width="150">
+                <img src="{{ url_for('static', filename='css/images/logo_new.png') }}" alt="Logo" width="150"
+                    class="w-32 md:w-[150px]">
             </div>
+
+            <!-- Desktop Menu -->
             <div id="authMenu" class="hidden md:flex items-center gap-4">
                 <span id="userName" class="text-sm font-semibold text-gray-700 dark:text-gray-300"></span>
                 <a href="/history"
@@ -86,16 +89,62 @@
                     Get Started
                 </a>
             </div>
+
+            <!-- Mobile Menu Button -->
+            <button id="mobileMenuBtn" class="md:hidden text-gray-700 dark:text-gray-300 focus:outline-none">
+                <span class="material-symbols-outlined !text-3xl">menu</span>
+            </button>
+        </div>
+
+        <!-- Mobile Menu Dropdown -->
+        <div id="mobileMenu"
+            class="hidden md:hidden bg-white dark:bg-[#101c22] border-t border-gray-100 dark:border-gray-800 absolute w-full left-0 top-16 shadow-lg">
+            <div class="flex flex-col p-4 space-y-4">
+                <!-- Auth State (Hidden by default, toggled via JS) -->
+                <div id="mobileAuthMenu" class="hidden flex-col space-y-4">
+                    <div class="flex items-center gap-3 pb-4 border-b border-gray-100 dark:border-gray-800">
+                        <div class="bg-primary/10 p-2 rounded-full">
+                            <span class="material-symbols-outlined text-primary">person</span>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">Signed in as</p>
+                            <p id="mobileUserName" class="text-sm font-bold text-gray-900 dark:text-white"></p>
+                        </div>
+                    </div>
+                    <a href="/history"
+                        class="flex items-center gap-3 text-gray-700 dark:text-gray-300 hover:text-primary p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-all">
+                        <span class="material-symbols-outlined">history</span>
+                        <span class="font-semibold">My History</span>
+                    </a>
+                    <button id="mobileLogoutBtn"
+                        class="w-full flex items-center gap-3 text-red-500 hover:text-red-600 p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/10 transition-all text-left">
+                        <span class="material-symbols-outlined">logout</span>
+                        <span class="font-bold">Logout</span>
+                    </button>
+                </div>
+
+                <!-- Guest State (Hidden by default, toggled via JS) -->
+                <div id="mobileGuestMenu" class="hidden flex-col space-y-3">
+                    <a href="/login"
+                        class="w-full text-center py-3 rounded-xl border border-gray-200 dark:border-gray-700 font-bold text-gray-700 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-800 transition-all">
+                        Login
+                    </a>
+                    <a href="/register"
+                        class="w-full text-center py-3 rounded-xl bg-primary text-white font-bold hover:bg-primary/90 transition-all shadow-lg shadow-primary/20">
+                        Get Started
+                    </a>
+                </div>
+            </div>
         </div>
     </nav>
 
-    <main class="pt-32 pb-20 px-6 max-w-7xl mx-auto">
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-16 items-start">
+    <main class="pt-24 md:pt-32 pb-20 px-4 md:px-6 max-w-7xl mx-auto">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-16 items-start">
             <!-- Left Column: Value Prop & Stepper -->
-            <div class="lg:col-span-6 flex flex-col gap-10">
-                <div class="space-y-6">
+            <div class="lg:col-span-6 flex flex-col gap-8 md:gap-10">
+                <div class="space-y-4 md:space-y-6">
                     <h1
-                        class="text-5xl md:text-6xl font-extrabold leading-[1.1] tracking-tight text-gray-900 dark:text-white">
+                        class="text-4xl md:text-6xl font-extrabold leading-[1.1] tracking-tight text-gray-900 dark:text-white">
                         Make Smarter <br />
                         <span class="text-primary">Business Location</span> Decisions
                     </h1>
@@ -278,31 +327,6 @@
             </div>
         </div>
     </main>
-
-    <!-- Footer Trust Bar -->
-    <footer class="mt-auto border-t border-gray-100 dark:border-gray-800 py-12 px-6">
-        <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-8">
-            <div class="flex flex-col gap-1">
-                <p class="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">Final Year
-                    Engineering Project</p>
-                <p class="text-xs text-gray-400">© 2024 BizMind Intelligence. All rights reserved.</p>
-            </div>
-            <div class="flex items-center gap-10 grayscale opacity-40 hover:opacity-80 transition-opacity">
-                <div class="flex items-center gap-2">
-                    <span class="material-symbols-outlined">cloud</span>
-                    <span class="text-sm font-bold">Groq AI</span>
-                </div>
-                <div class="flex items-center gap-2">
-                    <span class="material-symbols-outlined">psychology</span>
-                    <span class="text-sm font-bold">LLMLingua</span>
-                </div>
-                <div class="flex items-center gap-2">
-                    <span class="material-symbols-outlined">map</span>
-                    <span class="text-sm font-bold">OSM</span>
-                </div>
-            </div>
-        </div>
-    </footer>
 
     <!-- Custom JS -->
     <script>
@@ -492,21 +516,63 @@
             const token = localStorage.getItem('token');
             const user = JSON.parse(localStorage.getItem('user') || '{}');
 
+            const authMenu = document.getElementById('authMenu');
+            const guestMenu = document.getElementById('guestMenu');
+            const mobileAuthMenu = document.getElementById('mobileAuthMenu');
+            const mobileGuestMenu = document.getElementById('mobileGuestMenu');
+            const mobileUserName = document.getElementById('mobileUserName');
+
             if (token && user.email) {
                 // User is logged in
-                document.getElementById('authMenu').classList.remove('hidden');
+                authMenu.classList.remove('hidden');
+                guestMenu.classList.add('hidden');
+
+                // Mobile
+                mobileAuthMenu.classList.remove('hidden');
+                mobileAuthMenu.classList.add('flex');
+                mobileGuestMenu.classList.add('hidden');
+                mobileGuestMenu.classList.remove('flex');
+
                 document.getElementById('userName').textContent = user.full_name || user.email;
+                if (mobileUserName) mobileUserName.textContent = user.full_name || user.email;
             } else {
-                // User is not logged in - redirect to login
-                window.location.href = '/login';
+                // User is not logged in
+                authMenu.classList.add('hidden');
+                guestMenu.classList.remove('hidden');
+
+                // Mobile
+                mobileAuthMenu.classList.add('hidden');
+                mobileAuthMenu.classList.remove('flex');
+                mobileGuestMenu.classList.remove('hidden');
+                mobileGuestMenu.classList.add('flex');
+            }
+
+            // Mobile Menu Toggle
+            const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+            const mobileMenu = document.getElementById('mobileMenu');
+
+            if (mobileMenuBtn) {
+                mobileMenuBtn.addEventListener('click', () => {
+                    const isHidden = mobileMenu.classList.contains('hidden');
+                    if (isHidden) {
+                        mobileMenu.classList.remove('hidden');
+                        mobileMenuBtn.innerHTML = '<span class="material-symbols-outlined !text-3xl">close</span>';
+                    } else {
+                        mobileMenu.classList.add('hidden');
+                        mobileMenuBtn.innerHTML = '<span class="material-symbols-outlined !text-3xl">menu</span>';
+                    }
+                });
             }
 
             // Logout handler
-            document.getElementById('logoutBtn').addEventListener('click', function () {
+            function handleLogout() {
                 localStorage.removeItem('token');
                 localStorage.removeItem('user');
                 window.location.href = '/login';
-            });
+            }
+
+            document.getElementById('logoutBtn')?.addEventListener('click', handleLogout);
+            document.getElementById('mobileLogoutBtn')?.addEventListener('click', handleLogout);
 
             // Form submission
             document.getElementById('analysisForm').addEventListener('submit', async function (e) {

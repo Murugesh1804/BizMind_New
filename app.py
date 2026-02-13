@@ -30,6 +30,19 @@ load_dotenv()
 
 # Initialize Flask app
 app = Flask(__name__)
+
+# Security: Enforce environment variables for secrets in production
+# Fallback strictly for local development only
+if os.getenv('FLASK_ENV') == 'production':
+    if not os.getenv('SECRET_KEY'):
+        raise ValueError("No SECRET_KEY set for production application")
+    if not os.getenv('GROQ_API_KEY'):
+        raise ValueError("No GROQ_API_KEY set for production application")
+    if not os.getenv('GOOGLE_MAP_API'):
+        raise ValueError("No GOOGLE_MAP_API set for production application")
+    if not os.getenv('JWT_SECRET'):
+        raise ValueError("No JWT_SECRET set for production application")
+
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
 
 # Initialize API clients

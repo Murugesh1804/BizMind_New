@@ -2,33 +2,34 @@
 # Requirements File
 
 # Web Framework
-Flask==2.3.3
-Werkzeug==2.3.7
+Flask
+Werkzeug
+waitress
 
 # HTTP Requests
-requests==2.31.0
+requests
 
 # Google Maps API
-googlemaps==4.10.0
+googlemaps
 
 # Environment Variables
-python-dotenv==1.0.0
+python-dotenv
 
 # LLM Token Compression
-llmlingua==0.2.1
-transformers==4.35.2
-torch==2.1.1
+llmlingua
+transformers
+torch
 
 # Data Processing
-numpy==1.24.3
+numpy
 
 # Authentication & Security
-PyJWT==2.8.0
-bcrypt==4.1.2
-email-validator==2.1.0
+PyJWT
+bcrypt
+email-validator
 
 # Optional: Development Tools
-# flask-cors==4.0.0  # Uncomment if needed for CORS
+# flask-cors  # Uncomment if needed for CORS
 
 groq
 langchain

@@ -5,7 +5,7 @@
     <meta charset="utf-8" />
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
     <title>Analyzing... - BizMind</title>
-
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='css/images/fav.png') }}">
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&display=swap" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
@@ -110,11 +110,43 @@
                     </p>
                 </div>
 
-                <div class="mt-16 flex flex-col items-center gap-6">
-                    <div
-                        class="flex items-center gap-3 text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest px-5 py-2.5 rounded-full border border-gray-200/50 dark:border-gray-800/50 bg-white/30 dark:bg-white/5 backdrop-blur-sm shadow-sm">
-                        <span class="size-1.5 rounded-full bg-primary animate-pulse"></span>
-                        Estimated time: 10-15 seconds
+                <div class="mt-10 w-full max-w-sm">
+                    <div class="space-y-3">
+                        <!-- Step 1: Geocoding -->
+                        <div id="step-1"
+                            class="flex items-center gap-3 text-gray-400 dark:text-gray-500 transition-all duration-500">
+                            <div class="size-6 rounded-full border-2 border-current flex items-center justify-center">
+                                <span class="material-symbols-outlined text-[14px] opacity-0 step-icon">check</span>
+                            </div>
+                            <span class="text-sm font-bold tracking-wide">Locating & Geocoding</span>
+                        </div>
+
+                        <!-- Step 2: Competitor Data -->
+                        <div id="step-2"
+                            class="flex items-center gap-3 text-gray-400 dark:text-gray-500 transition-all duration-500">
+                            <div class="size-6 rounded-full border-2 border-current flex items-center justify-center">
+                                <span class="material-symbols-outlined text-[14px] opacity-0 step-icon">check</span>
+                            </div>
+                            <span class="text-sm font-bold tracking-wide">Fetching Market Data</span>
+                        </div>
+
+                        <!-- Step 3: Feature Engineering -->
+                        <div id="step-3"
+                            class="flex items-center gap-3 text-gray-400 dark:text-gray-500 transition-all duration-500">
+                            <div class="size-6 rounded-full border-2 border-current flex items-center justify-center">
+                                <span class="material-symbols-outlined text-[14px] opacity-0 step-icon">check</span>
+                            </div>
+                            <span class="text-sm font-bold tracking-wide">Analyzing Competitors</span>
+                        </div>
+
+                        <!-- Step 4: AI Insights -->
+                        <div id="step-4"
+                            class="flex items-center gap-3 text-gray-400 dark:text-gray-500 transition-all duration-500">
+                            <div class="size-6 rounded-full border-2 border-current flex items-center justify-center">
+                                <span class="material-symbols-outlined text-[14px] opacity-0 step-icon">check</span>
+                            </div>
+                            <span class="text-sm font-bold tracking-wide">Generating AI Strategies</span>
+                        </div>
                     </div>
                 </div>
             </main>
@@ -147,6 +179,43 @@
                 window.location.href = '/login';
                 return;
             }
+
+            // Simulate progress steps
+            const steps = [
+                { id: 'step-1', delay: 500 },   // Geocoding
+                { id: 'step-2', delay: 2500 },  // Fetching Data
+                { id: 'step-3', delay: 6000 },  // Analyzing
+                { id: 'step-4', delay: 9000 }   // AI Generation
+            ];
+
+            const activateStep = (stepId) => {
+                const el = document.getElementById(stepId);
+                if (el) {
+                    el.classList.remove('text-gray-400', 'dark:text-gray-500');
+                    el.classList.add('text-primary', 'scale-105');
+                    el.querySelector('.size-6').classList.add('bg-primary', 'text-white', 'border-primary');
+                    // Reset others to completed style if needed, but for now just highlight active
+                }
+            };
+
+            const completeStep = (stepId) => {
+                const el = document.getElementById(stepId);
+                if (el) {
+                    el.classList.remove('scale-105');
+                    el.classList.add('text-gray-900', 'dark:text-white');
+                    el.querySelector('.step-icon').classList.remove('opacity-0');
+                }
+            }
+
+            // Start animation sequence
+            steps.forEach((step, index) => {
+                setTimeout(() => {
+                    // Complete previous if exists
+                    if (index > 0) completeStep(steps[index - 1].id);
+                    // Activate current
+                    activateStep(step.id);
+                }, step.delay);
+            });
 
             // Create FormData object
             const formData = new FormData();
