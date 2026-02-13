@@ -30,17 +30,37 @@ class OpenRouterClient:
         self.client = Groq(api_key=api_key)
         self.model = "groq/compound"  # Groq's compound model
         self.enable_rag = enable_rag
+        self.vectordb_path = vectordb_path
         self.vectorstore = None
         
-        # Initialize RAG components if enabled
-        if self.enable_rag:
+        # Lazy loading: vectorstore is NOT initialized here anymore
+        # It will be initialized on first use in _ensure_vectorstore_loaded()
+    
+    def _ensure_vectorstore_loaded(self):
+        """
+        Lazy load the vector database if enabled and not yet loaded.
+        Includes CPU and memory optimizations.
+        """
+        if self.enable_rag and self.vectorstore is None:
             try:
-                print("[RAG] Initializing vector database...")
+                print("[RAG] Initializing vector database (Lazy Load)...")
+                
+                # 4️⃣ Use Torch CPU optimizations
+                import torch
+                torch.set_num_threads(1)
+                torch.set_num_interop_threads(1)
+                
+                # 7️⃣ Disable gradients & training features
+                torch.set_grad_enabled(False)
+                
+                # 2️⃣ Switch to ultra-small model: paraphrase-MiniLM-L3-v2
                 embeddings = HuggingFaceEmbeddings(
-                    model_name="sentence-transformers/all-MiniLM-L6-v2"
+                    model_name="sentence-transformers/paraphrase-MiniLM-L3-v2",
+                    model_kwargs={'device': 'cpu'}  # Force CPU
                 )
+                
                 self.vectorstore = FAISS.load_local(
-                    vectordb_path, 
+                    self.vectordb_path, 
                     embeddings, 
                     allow_dangerous_deserialization=True
                 )
@@ -62,6 +82,9 @@ class OpenRouterClient:
         Returns:
             str: Retrieved context from knowledge base
         """
+        # Ensure vectorstore is loaded (Lazy Load)
+        self._ensure_vectorstore_loaded()
+        
         if not self.enable_rag or not self.vectorstore:
             return ""
         
@@ -511,6 +534,10 @@ STYLE RULES
         try:
             # Retrieve RAG context for the user's question if enabled
             rag_context = ""
+            
+            # Ensure vectorstore is loaded (Lazy Load)
+            self._ensure_vectorstore_loaded()
+            
             if self.enable_rag and self.vectorstore:
                 try:
                     docs = self.vectorstore.similarity_search(message, k=2)
