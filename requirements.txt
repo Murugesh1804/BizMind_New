@@ -4,7 +4,8 @@
 # Web Framework
 Flask
 Werkzeug
-waitress
+Waitress
+gunicorn
 
 # HTTP Requests
 requests
@@ -33,6 +34,8 @@ email-validator
 
 groq
 langchain
+langchain-huggingface
+langchain-community
 faiss-cpu
 pypdf
 sentence-transformers

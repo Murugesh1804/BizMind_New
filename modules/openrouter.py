@@ -11,6 +11,49 @@ import os
 import re
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
+from sentence_transformers import SentenceTransformer
+from langchain_core.embeddings import Embeddings
+
+# Global model singleton
+_model = None
+
+def get_model():
+    """
+    Get or create the global embedding model instance (Lazy Load).
+    Includes CPU and memory optimizations.
+    """
+    global _model
+    if _model is None:
+        import torch
+        # 4️⃣ Use Torch CPU optimizations
+        torch.set_num_threads(1)
+        torch.set_num_interop_threads(1)
+        # 7️⃣ Disable gradients & training features
+        torch.set_grad_enabled(False)
+        
+        print("[Model] Loading embedding model (Lazy)...")
+        _model = SentenceTransformer(
+            "paraphrase-MiniLM-L3-v2", # Ultra-small model
+            device="cpu"
+        )
+    return _model
+
+class LazyHuggingFaceEmbeddings(Embeddings):
+    """
+    Custom Embeddings wrapper that uses the global lazy-loaded model.
+    Compatible with LangChain and FAISS.
+    """
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        model = get_model()
+        # Ensure we return a list of lists of floats
+        embeddings = model.encode(texts, convert_to_numpy=True, normalize_embeddings=True)
+        return embeddings.tolist()
+
+    def embed_query(self, text: str) -> list[float]:
+        model = get_model()
+        # Ensure we return a list of floats
+        embedding = model.encode(text, convert_to_numpy=True, normalize_embeddings=True)
+        return embedding.tolist()
 
 
 class OpenRouterClient:
@@ -39,25 +82,14 @@ class OpenRouterClient:
     def _ensure_vectorstore_loaded(self):
         """
         Lazy load the vector database if enabled and not yet loaded.
-        Includes CPU and memory optimizations.
+        Uses the optimized LazyHuggingFaceEmbeddings wrapper.
         """
         if self.enable_rag and self.vectorstore is None:
             try:
                 print("[RAG] Initializing vector database (Lazy Load)...")
                 
-                # 4️⃣ Use Torch CPU optimizations
-                import torch
-                torch.set_num_threads(1)
-                torch.set_num_interop_threads(1)
-                
-                # 7️⃣ Disable gradients & training features
-                torch.set_grad_enabled(False)
-                
-                # 2️⃣ Switch to ultra-small model: paraphrase-MiniLM-L3-v2
-                embeddings = HuggingFaceEmbeddings(
-                    model_name="sentence-transformers/paraphrase-MiniLM-L3-v2",
-                    model_kwargs={'device': 'cpu'}  # Force CPU
-                )
+                # Use our optimized embeddings wrapper
+                embeddings = LazyHuggingFaceEmbeddings()
                 
                 self.vectorstore = FAISS.load_local(
                     self.vectordb_path, 
