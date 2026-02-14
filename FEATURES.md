@@ -16,16 +16,21 @@
 - ⚡ **Performance Optimized**: Parallel API calls and data compression
 
 ### **Latest Updates (2026)**
-- ✅ User authentication and authorization system
+- ✅ User authentication and authorization system (JWT + bcrypt)
 - ✅ Complete database persistence with SQLite
 - ✅ Analysis history dashboard with search and filter
 - ✅ AI chatbot integration (bBot)
-- ✅ Customer base demographic analysis
+- ✅ Customer base demographic analysis with heatmaps
 - ✅ Enhanced competitor data (50 reviews, phone, website, hours)
-- ✅ Chart.js visualizations and heatmaps
+- ✅ Chart.js visualizations and interactive charts
 - ✅ JSON and PDF export functionality
 - ✅ RAG system for knowledge-enhanced responses
 - ✅ Parallel data fetching for faster performance
+- ✅ Production deployment with Gunicorn
+- ✅ Environment variable validation for production
+- ✅ Mobile-responsive design with dark mode
+- ✅ Google Maps heatmap visualization
+- ✅ Optimized for low-RAM VPS deployment
 
 ---
 
@@ -182,20 +187,22 @@
 ### **Backend (Python/Flask)**
 ```
 app.py
-├── Route: / (GET) - Landing page
-├── Route: /register (GET) - Registration page
-├── Route: /login (GET) - Login page
-├── Route: /api/auth/register (POST) - User registration
-├── Route: /api/auth/login (POST) - User login
-├── Route: /api/auth/me (GET) - Get current user [PROTECTED]
+├── Route: / (GET) - Landing page with interactive map
+├── Route: /register (GET) - User registration page
+├── Route: /login (GET) - User login page
+├── Route: /api/auth/register (POST) - User registration endpoint
+├── Route: /api/auth/login (POST) - User login endpoint
+├── Route: /api/auth/me (GET) - Get current user info [PROTECTED]
 ├── Route: /analyze (POST) - Main analysis endpoint [PROTECTED]
-├── Route: /history (GET) - Analysis history page
-├── Route: /api/history (GET) - Get user analyses [PROTECTED]
-├── Route: /api/history/<id> (GET) - Get specific analysis [PROTECTED]
+├── Route: /history (GET) - Analysis history page [PROTECTED]
+├── Route: /api/history (GET) - Get user analyses with pagination [PROTECTED]
+├── Route: /api/history/<id> (GET) - Get specific analysis details [PROTECTED]
 ├── Route: /api/history/<id> (DELETE) - Delete analysis [PROTECTED]
-├── Route: /api/history/<id>/download (GET) - Download analysis [PROTECTED]
-├── Route: /api/chat (POST) - Chatbot endpoint
-└── Route: /loading (GET) - Loading page
+├── Route: /api/history/<id>/download (GET) - Download as JSON/PDF [PROTECTED]
+├── Route: /api/chat (POST) - AI chatbot endpoint (bBot)
+├── Route: /loading (GET) - Loading animation page
+├── Error Handler: 404 - Not found handler
+└── Error Handler: 500 - Internal server error handler
 ```
 
 ### **Core Modules**
@@ -273,6 +280,153 @@ Response Formatting
     ↓
 Dashboard Display (with Charts & Maps)
 ```
+
+### **Templates (HTML/Jinja2)**
+
+#### **1. index.html** - Landing Page
+- Interactive Leaflet map with click-to-select location
+- 4-step vertical stepper workflow
+- Business type and name input fields
+- Radius selector (500m, 1km, 2km, 5km)
+- Owner type toggle (New/Serial Entrepreneur)
+- GPS "Use My Location" button
+- Reverse geocoding for address display
+- Responsive design with mobile menu
+- Dark mode support
+
+#### **2. register.html** - User Registration
+- Email validation with RFC compliance
+- Password strength requirements (8+ chars)
+- Full name input
+- Real-time validation feedback
+- Secure password hashing (bcrypt)
+- Redirect to login after success
+
+#### **3. login.html** - User Login
+- Email and password authentication
+- JWT token generation
+- Error handling with user-friendly messages
+- Redirect to dashboard after login
+
+#### **4. dashboard.html** - Analysis Results
+- Success score doughnut chart (Chart.js)
+- 5 key metric cards with mini charts
+- Strategic insights grid (6 sections)
+- Customer base heatmap (Google Maps)
+- Top 3 competitor cards
+- Download PDF/JSON buttons
+- Mobile-responsive layout
+
+#### **5. history.html** - Analysis History
+- Paginated analysis list (20 per page)
+- Search and filter functionality
+- Quick preview cards with key metrics
+- View, download, and delete actions
+- JWT-protected access
+
+#### **6. loading.html** - Loading Animation
+- Professional loading spinner
+- Progress messages
+- Smooth animations
+
+#### **7. download_pdf.html** - PDF Export Template
+- Print-optimized layout
+- Complete analysis report
+- Professional formatting
+
+---
+
+## 📊 Data Visualization Features
+
+### **Chart.js Integration**
+- **Success Score Gauge**: Doughnut chart with 75% cutout
+- **Competition Mini Chart**: Bar chart showing weekly trends
+- **Demand Mini Chart**: Line chart with gradient fill
+- **Rating Mini Chart**: Horizontal stacked bar chart
+- **Opportunity Mini Chart**: Progress bar visualization
+- **Interactive Tooltips**: Hover for detailed information
+- **Responsive Design**: Charts adapt to screen size
+- **Dark Mode Support**: Color schemes adjust automatically
+
+### **Google Maps Heatmap**
+- **Customer Density Visualization**: Red intensity indicates high traffic
+- **Real-time Data**: Live Google Places API integration
+- **Interactive Map**: Pan, zoom, and explore
+- **Heatmap Points**: Based on cafes and restaurants
+- **Radius Circle**: Visual representation of search area
+- **Location Marker**: Blue marker for selected location
+
+---
+
+## 🗄️ Database Schema
+
+### **Users Table**
+```sql
+CREATE TABLE users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    email TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    full_name TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_login TIMESTAMP
+);
+```
+
+### **Analyses Table**
+```sql
+CREATE TABLE analyses (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    business_name TEXT NOT NULL,
+    business_type TEXT NOT NULL,
+    location TEXT NOT NULL,
+    latitude REAL,
+    longitude REAL,
+    radius INTEGER,
+    owner_type TEXT,
+    success_score REAL,
+    recommendation TEXT,
+    features_json TEXT,
+    ai_insights_json TEXT,
+    competitors_json TEXT,
+    strategy_json TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+```
+
+### **Indexes for Performance**
+- `idx_analyses_user_id` - Fast user analysis lookups
+- `idx_analyses_created_at` - Chronological sorting
+- `idx_users_email` - Quick email-based authentication
+
+---
+
+## 🔐 Security Features
+
+### **Authentication & Authorization**
+- **JWT Tokens**: Stateless authentication with expiration
+- **Password Hashing**: bcrypt with salt (cost factor 12)
+- **Email Validation**: RFC-compliant email format checking
+- **Password Strength**: Minimum 8 characters requirement
+- **Protected Routes**: `@require_auth` decorator for sensitive endpoints
+- **Token Verification**: Automatic token validation on protected routes
+- **Session Management**: Secure token storage in localStorage
+
+### **Input Validation & Protection**
+- **Required Fields**: Server-side validation for all inputs
+- **Email Format**: Regex validation for email addresses
+- **Coordinate Validation**: Latitude/longitude range checking
+- **SQL Injection Protection**: Parameterized queries throughout
+- **XSS Prevention**: Input sanitization and output escaping
+- **CSRF Protection**: Token-based request validation
+
+### **Environment Security**
+- **API Key Management**: All secrets in `.env` file
+- **Production Validation**: Enforces required variables in production
+- **Secret Key Rotation**: Support for key updates
+- **No Hardcoded Secrets**: All sensitive data externalized
+- **.gitignore**: Prevents accidental secret commits
 
 ---
 
@@ -405,19 +559,53 @@ where a = sin²(Δlat/2) + cos(lat1) * cos(lat2) * sin²(Δlon/2)
 
 ## 🚀 Deployment Considerations
 
-### **Development**
+### **Development Mode**
 ```bash
 python app.py
 # Runs on http://localhost:5000
 # Debug mode enabled
 # Auto-reload on code changes
+# Detailed error messages
 ```
 
-### **Production Ready**
-- WSGI server compatible (Gunicorn, uWSGI)
-- Environment-based configuration
-- Logging infrastructure
-- Error monitoring
+### **Production Deployment**
+
+#### **Environment Variables Validation**
+- Enforces required API keys in production mode
+- Validates `SECRET_KEY`, `GROQ_API_KEY`, `GOOGLE_MAP_API`, `JWT_SECRET`
+- Fails fast if critical environment variables are missing
+- Separate development fallbacks for local testing
+
+#### **Gunicorn Configuration (run_prod.sh)**
+```bash
+#!/bin/bash
+# Optimized for low-RAM VPS deployment
+gunicorn app:app \
+  --workers 1 \          # Single worker to save RAM
+  --threads 2 \          # 2 threads for concurrency
+  --bind 127.0.0.1:5000 \
+  --timeout 120          # 120s timeout for AI processing
+```
+
+#### **Production Features**
+- ✅ WSGI server compatible (Gunicorn, uWSGI)
+- ✅ Environment-based configuration
+- ✅ Comprehensive error handling
+- ✅ Production-ready logging
+- ✅ Low memory footprint (1 worker)
+- ✅ Optimized for VPS deployment
+- ✅ Secure secret management
+- ✅ Database connection pooling
+
+#### **Deployment Checklist**
+1. Set `FLASK_ENV=production` in environment
+2. Configure all required API keys in `.env`
+3. Set strong `SECRET_KEY` and `JWT_SECRET`
+4. Use reverse proxy (Nginx/Apache)
+5. Enable HTTPS/SSL certificates
+6. Configure firewall rules
+7. Set up database backups
+8. Monitor application logs
 
 ---
 
@@ -731,25 +919,42 @@ For each competitor, we now collect:
 ## 🎨 Enhanced UI/UX Features
 
 ### **Modern Dashboard**
-- **Glassmorphism Design**: Frosted glass effects
-- **Dark Mode Support**: Eye-friendly interface
-- **Smooth Animations**: Micro-interactions throughout
-- **Responsive Layout**: Works on all devices
-- **Loading States**: Clear progress indicators
+- **Glassmorphism Design**: Frosted glass effects with backdrop blur
+- **Dark Mode Support**: Eye-friendly dark theme with smooth transitions
+- **Smooth Animations**: Micro-interactions and hover effects throughout
+- **Responsive Layout**: Mobile-first design, works on all devices
+- **Loading States**: Clear progress indicators and skeleton screens
+- **Professional Color Scheme**: Primary blue (#137fec) with gradient accents
+- **Google Fonts**: Manrope font family for modern typography
+- **Material Symbols**: Consistent iconography throughout
 
 ### **Interactive Components**
-- **Leaflet Maps**: Interactive location selection
-- **Radius Selector**: Visual circle overlay
-- **Toggle Buttons**: Smooth owner type selection
-- **Vertical Stepper**: Clear workflow visualization
-- **Chatbot Widget**: Floating assistant
+- **Leaflet Maps**: Interactive location selection with click-to-place
+- **Radius Selector**: Visual circle overlay with dynamic updates
+- **Toggle Buttons**: Smooth owner type selection (New/Serial Entrepreneur)
+- **Vertical Stepper**: Clear 4-step workflow visualization
+- **Chatbot Widget**: Floating bBot assistant with context awareness
+- **Chart.js Visualizations**: Interactive charts with hover tooltips
+- **Google Maps Heatmap**: Customer density visualization
+- **Mobile Menu**: Responsive hamburger menu for mobile devices
+
+### **Mobile Responsiveness**
+- **Breakpoints**: Tailwind CSS responsive utilities (sm, md, lg, xl)
+- **Touch-Friendly**: Large tap targets for mobile interaction
+- **Optimized Layout**: Single-column layout on mobile, multi-column on desktop
+- **Hamburger Menu**: Collapsible navigation for small screens
+- **Responsive Charts**: Charts adapt to screen size
+- **Mobile-First Forms**: Easy-to-use forms on touch devices
+- **Sticky Footer**: Fixed bottom action bar on mobile
 
 ### **Accessibility**
-- **Keyboard Navigation**: Full keyboard support
-- **Screen Reader Friendly**: ARIA labels throughout
-- **High Contrast Mode**: Readable in all conditions
-- **Focus Indicators**: Clear focus states
-- **Semantic HTML**: Proper heading hierarchy
+- **Keyboard Navigation**: Full keyboard support for all interactions
+- **Screen Reader Friendly**: ARIA labels and semantic HTML throughout
+- **High Contrast Mode**: Readable in all lighting conditions
+- **Focus Indicators**: Clear focus states for keyboard navigation
+- **Semantic HTML**: Proper heading hierarchy (h1-h6)
+- **Alt Text**: Descriptive alt text for all images
+- **Color Contrast**: WCAG AA compliant color contrast ratios
 
 ---
 
@@ -811,13 +1016,19 @@ For each competitor, we now collect:
 - **Data-Driven**: Comprehensive analysis with 50+ reviews, customer demographics, and competitor insights
 
 ### **Technical Achievements**
-- ✅ 10+ engineering concepts demonstrated
-- ✅ 15+ technologies mastered
-- ✅ 15+ API endpoints with authentication
-- ✅ 6 core modules with separation of concerns
-- ✅ Database with proper indexing and relationships
-- ✅ Parallel processing for optimal performance
-- ✅ 35% data compression for cost efficiency
+- ✅ 10+ engineering concepts demonstrated (API integration, AI/ML, geospatial analysis, etc.)
+- ✅ 20+ technologies mastered (Python, Flask, JWT, bcrypt, Chart.js, Leaflet.js, etc.)
+- ✅ 17 API endpoints with comprehensive authentication
+- ✅ 7 complete HTML templates with responsive design
+- ✅ 6 core modules with clean separation of concerns
+- ✅ SQLite database with proper indexing and foreign keys
+- ✅ Parallel processing with ThreadPoolExecutor (4 workers)
+- ✅ 35% data compression with LLMLingua
+- ✅ Production deployment with Gunicorn (1 worker, 2 threads)
+- ✅ Mobile-responsive design with dark mode support
+- ✅ Interactive data visualizations (Chart.js + Google Maps)
+- ✅ Complete CRUD operations for user analyses
+- ✅ JWT-based authentication with bcrypt password hashing
 
 **Perfect for**: Final year engineering project, portfolio showcase, startup MVP, or real business deployment.
 
@@ -827,4 +1038,5 @@ For each competitor, we now collect:
 **GitHub**: [Murugesh1804/BizMind_New](https://github.com/Murugesh1804/BizMind_New)  
 **Year**: 2024-2026  
 **Status**: ✅ Complete & Production-Ready  
-**Last Updated**: February 2026
+**Deployment**: Optimized for VPS (1 worker, 2 threads)  
+**Last Updated**: February 14, 2026

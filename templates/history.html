@@ -46,13 +46,17 @@
     class="font-display bg-background-light dark:bg-background-dark text-[#111618] dark:text-white transition-colors duration-300">
     <!-- Fixed Navbar -->
     <nav class="fixed top-0 left-0 right-0 z-50 glass-nav border-b border-gray-200/50 dark:border-gray-800/50">
-        <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-            <div class="flex items-center gap-2">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+            <!-- Logo - Centered on mobile, left on desktop -->
+            <div class="flex items-center justify-center flex-1 md:flex-none md:justify-start">
                 <a href="/">
-                    <img src="{{ url_for('static', filename='css/images/logo_new.png') }}" alt="Logo" width="150">
+                    <img src="{{ url_for('static', filename='css/images/logo_new.png') }}" alt="BizMind Logo"
+                        class="h-8 w-auto sm:h-9 md:h-10">
                 </a>
             </div>
-            <div class="flex items-center gap-4">
+
+            <!-- Desktop Menu -->
+            <div class="hidden md:flex items-center gap-4">
                 <span id="userName" class="text-sm font-semibold text-gray-700 dark:text-gray-300"></span>
                 <a href="/"
                     class="text-sm font-semibold text-gray-700 dark:text-gray-300 hover:text-primary transition-colors">New
@@ -60,6 +64,38 @@
                 <button id="logoutBtn"
                     class="bg-gray-100 dark:bg-gray-800 px-5 py-2 rounded-full text-sm font-bold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all">
                     Logout
+                </button>
+            </div>
+
+            <!-- Mobile Menu Button - Absolute positioned on right -->
+            <button id="mobileMenuBtn"
+                class="md:hidden absolute right-4 p-2 -m-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50">
+                <span class="material-symbols-outlined !text-2xl">menu</span>
+            </button>
+        </div>
+
+        <!-- Mobile Menu Dropdown -->
+        <div id="mobileMenu"
+            class="hidden md:hidden bg-white dark:bg-[#101c22] border-t border-gray-100 dark:border-gray-800 absolute w-full left-0 top-16 shadow-lg">
+            <div class="flex flex-col p-4 space-y-4">
+                <div class="flex items-center gap-3 pb-4 border-b border-gray-100 dark:border-gray-800">
+                    <div class="bg-primary/10 p-2 rounded-full">
+                        <span class="material-symbols-outlined text-primary">person</span>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Signed in as</p>
+                        <p id="mobileUserName" class="text-sm font-bold text-gray-900 dark:text-white"></p>
+                    </div>
+                </div>
+                <a href="/"
+                    class="flex items-center gap-3 text-gray-700 dark:text-gray-300 hover:text-primary p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-all">
+                    <span class="material-symbols-outlined">add_circle</span>
+                    <span class="font-semibold">New Analysis</span>
+                </a>
+                <button id="mobileLogoutBtn"
+                    class="w-full flex items-center gap-3 text-red-500 hover:text-red-600 p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/10 transition-all text-left">
+                    <span class="material-symbols-outlined">logout</span>
+                    <span class="font-bold">Logout</span>
                 </button>
             </div>
         </div>
@@ -168,13 +204,39 @@
         // Display user name
         const user = JSON.parse(localStorage.getItem('user') || '{}');
         document.getElementById('userName').textContent = user.full_name || user.email || '';
+        const mobileUserName = document.getElementById('mobileUserName');
+        if (mobileUserName) {
+            mobileUserName.textContent = user.full_name || user.email || '';
+        }
 
-        // Logout handler
-        document.getElementById('logoutBtn').addEventListener('click', function () {
+        // Mobile Menu Toggle
+        const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+        const mobileMenu = document.getElementById('mobileMenu');
+        if (mobileMenuBtn) {
+            mobileMenuBtn.addEventListener('click', () => {
+                const isHidden = mobileMenu.classList.contains('hidden');
+                if (isHidden) {
+                    mobileMenu.classList.remove('hidden');
+                    mobileMenuBtn.innerHTML = '<span class="material-symbols-outlined !text-2xl">close</span>';
+                } else {
+                    mobileMenu.classList.add('hidden');
+                    mobileMenuBtn.innerHTML = '<span class="material-symbols-outlined !text-2xl">menu</span>';
+                }
+            });
+        }
+
+        // Logout handlers
+        function handleLogout() {
             localStorage.removeItem('token');
             localStorage.removeItem('user');
             window.location.href = '/login';
-        });
+        }
+
+        document.getElementById('logoutBtn').addEventListener('click', handleLogout);
+        const mobileLogoutBtn = document.getElementById('mobileLogoutBtn');
+        if (mobileLogoutBtn) {
+            mobileLogoutBtn.addEventListener('click', handleLogout);
+        }
 
         // Load analyses
         async function loadAnalyses(page = 1) {
