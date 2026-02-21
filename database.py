@@ -72,6 +72,18 @@ class Database:
                 )
             ''')
             
+            # Create analysis_progress table for real-time tracking across workers
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS analysis_progress (
+                    user_id INTEGER PRIMARY KEY,
+                    step INTEGER DEFAULT 0,
+                    status TEXT,
+                    progress INTEGER DEFAULT 0,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                )
+            ''')
+            
             # Create indexes for performance
             cursor.execute('''
                 CREATE INDEX IF NOT EXISTS idx_analyses_user_id 
@@ -215,6 +227,34 @@ class Database:
             ''', (user_id,))
             row = cursor.fetchone()
             return row['count'] if row else 0
+
+    def set_analysis_progress(self, user_id, step, status, progress):
+        """Update or create analysis progress for a user"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO analysis_progress (user_id, step, status, progress, updated_at)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(user_id) DO UPDATE SET
+                    step = excluded.step,
+                    status = excluded.status,
+                    progress = excluded.progress,
+                    updated_at = excluded.updated_at
+            ''', (user_id, step, status, progress, datetime.now()))
+
+    def get_analysis_progress(self, user_id):
+        """Get current progress for a user"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT * FROM analysis_progress WHERE user_id = ?', (user_id,))
+            row = cursor.fetchone()
+            return dict(row) if row else None
+
+    def clear_analysis_progress(self, user_id):
+        """Remove progress entry for a user"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('DELETE FROM analysis_progress WHERE user_id = ?', (user_id,))
 
 
 # Global database instance

@@ -26,9 +26,6 @@ from modules.openrouter import OpenRouterClient  # Module uses Groq API (origina
 from modules.auth import create_auth_manager
 from database import db
 
-# Global analysis progress tracker (User ID -> Progress Info)
-ANALYSIS_PROGRESS = {}
-
 # Load environment variables
 load_dotenv()
 
@@ -351,7 +348,7 @@ def analyze():
         user_id = request.current_user['user_id']
         
         # Reset progress for this user
-        ANALYSIS_PROGRESS[user_id] = {"step": 0, "status": "Starting analysis...", "progress": 5}
+        db.set_analysis_progress(user_id, 0, "Starting analysis...", 5)
         
         # Step 1: Extract form data
         business_name = request.form.get('business_name', '').strip()
@@ -377,7 +374,7 @@ def analyze():
         
         # Step 2: Geocode location if coordinates not provided
         if not latitude or not longitude:
-            ANALYSIS_PROGRESS[user_id] = {"step": 0, "status": "Identifying location coordinates...", "progress": 10}
+            db.set_analysis_progress(user_id, 0, "Identifying location coordinates...", 10)
             print(f"[INFO] No coordinates provided, geocoding location: {location}")
             coords = google_maps_client.geocode(location)
             if coords:
@@ -388,7 +385,7 @@ def analyze():
                 print(f"[WARN] Geocoding failed, will search by location name only")
         
         # Step 3: Fetch competitor data from Google Maps
-        ANALYSIS_PROGRESS[user_id] = {"step": 1, "status": "Scanning nearby competition...", "progress": 25}
+        db.set_analysis_progress(user_id, 1, "Scanning nearby competition...", 25)
         print(f"[INFO] Fetching competitor data for: {business_type} in {location}")
         
         # Pass coordinates if available for more precise search
@@ -418,7 +415,7 @@ def analyze():
         features = feature_engineer.calculate_features(competitors_data)
         
         # Step 4.5: Fetch customer base data
-        ANALYSIS_PROGRESS[user_id] = {"step": 2, "status": "Analyzing customer demographics...", "progress": 45}
+        db.set_analysis_progress(user_id, 2, "Analyzing customer demographics...", 45)
         print("[INFO] Fetching customer base indicators...")
         customer_base = {}
         if latitude and longitude:
@@ -452,7 +449,7 @@ def analyze():
             }
         
         # Step 5: Compress review data using LLMLingua (limit to 50 reviews for speed)
-        ANALYSIS_PROGRESS[user_id] = {"step": 3, "status": "Processing customer sentiment...", "progress": 65}
+        db.set_analysis_progress(user_id, 3, "Processing customer sentiment...", 65)
         print("[INFO] Compressing review data with LLMLingua")
         all_reviews = []
         for comp in competitors_data:
@@ -464,7 +461,7 @@ def analyze():
         compressed_reviews = compressor.compress_reviews(all_reviews)
         
         # Step 6: Generate AI insights using OpenRouter
-        ANALYSIS_PROGRESS[user_id] = {"step": 4, "status": "Generating strategic insights...", "progress": 85}
+        db.set_analysis_progress(user_id, 4, "Generating strategic insights...", 85)
         print("[INFO] Generating AI insights via OpenRouter")
         ai_insights = openrouter_client.generate_insights(
             business_name=business_name,
@@ -478,7 +475,7 @@ def analyze():
         )
         
         # Step 7: Save analysis to database
-        ANALYSIS_PROGRESS[user_id] = {"step": 5, "status": "Finalizing success probability...", "progress": 95}
+        db.set_analysis_progress(user_id, 5, "Finalizing success probability...", 95)
         print("[INFO] Saving analysis to database")
         
         # Prepare strategy data (complete AI insights for storage)
@@ -548,14 +545,14 @@ def analyze():
         }
         
         # Clear progress on completion
-        ANALYSIS_PROGRESS.pop(user_id, None)
+        db.clear_analysis_progress(user_id)
         
         # Return JSON response (dashboard rendered by Next.js frontend)
         return jsonify(response_data), 200
         
     except Exception as e:
         # Clear progress on failure
-        ANALYSIS_PROGRESS.pop(user_id, None)
+        db.clear_analysis_progress(user_id)
         print(f"[ERROR] Analysis failed: {str(e)}")
         return jsonify({
             'error': 'Analysis failed',
@@ -570,7 +567,9 @@ def get_analysis_progress():
     Get current progress of analysis for the logged-in user
     """
     user_id = request.current_user['user_id']
-    progress = ANALYSIS_PROGRESS.get(user_id, {"step": -1, "status": "idle", "progress": 0})
+    progress = db.get_analysis_progress(user_id)
+    if not progress:
+        progress = {"step": -1, "status": "idle", "progress": 0}
     return jsonify(progress), 200
 
 
