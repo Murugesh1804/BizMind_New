@@ -29,8 +29,8 @@ PyJWT
 bcrypt
 email-validator
 
-# Optional: Development Tools
-# flask-cors  # Uncomment if needed for CORS
+# CORS (required for Next.js frontend)
+flask-cors
 
 groq
 langchain

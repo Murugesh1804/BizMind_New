@@ -1,17 +1,18 @@
 """
 BizMind - AI Business Location Decision Support System
-Main Flask Application
+Flask REST API Backend
 
-This is the core application file that handles:
-- Route definitions
-- Request handling
-- Template rendering
+This is the API-only backend. All HTML rendering is handled by the Next.js frontend.
+This file handles:
+- REST API route definitions
+- Request handling and JSON responses
 - API orchestration
-- Authentication
+- Authentication (JWT)
 - Database persistence
 """
 
-from flask import Flask, render_template, request, jsonify, redirect, url_for, send_file
+from flask import Flask, request, jsonify, send_file
+from flask_cors import CORS
 from dotenv import load_dotenv
 import os
 import json
@@ -30,6 +31,9 @@ load_dotenv()
 
 # Initialize Flask app
 app = Flask(__name__)
+
+# Enable CORS for Next.js frontend
+CORS(app, origins=["http://localhost:3000"], supports_credentials=True)
 
 # Security: Enforce environment variables for secrets in production
 # Fallback strictly for local development only
@@ -143,18 +147,6 @@ def fetch_customer_base_data(lat, lon, radius):
 # ============================================================================
 # AUTHENTICATION ROUTES
 # ============================================================================
-
-@app.route('/register')
-def register_page():
-    """Registration page"""
-    return render_template('register.html')
-
-
-@app.route('/login')
-def login_page():
-    """Login page"""
-    return render_template('login.html')
-
 
 @app.route('/api/auth/register', methods=['POST'])
 def register():
@@ -327,20 +319,13 @@ def get_current_user():
 # MAIN APPLICATION ROUTES
 # ============================================================================
 
-@app.route('/')
-def index():
-    """
-    Home page route - displays the input form
-    """
-    return render_template('index.html')
-
-
-@app.route('/analyze', methods=['POST'])
+@app.route('/api/analyze', methods=['POST'])
 @auth_manager.require_auth
 def analyze():
     """
-    Main analysis endpoint (PROTECTED)
-    
+    Main analysis endpoint (PROTECTED) — now API-only
+    Returns JSON instead of rendering a template.
+
     Workflow:
     1. Receive user input
     2. Fetch competitor data from Google Maps
@@ -348,7 +333,7 @@ def analyze():
     4. Compress data using LLMLingua
     5. Generate insights using OpenRouter LLM
     6. Save to database
-    7. Return results to dashboard
+    7. Return JSON response
     """
     try:
         # Get authenticated user
@@ -504,21 +489,35 @@ def analyze():
         )
         print(f"[INFO] Analysis saved with ID: {analysis_id}")
         
-        # Step 8: Prepare final response
+        # Step 8: Prepare final response (flattened for Next.js dashboard)
         response_data = {
             'analysis_id': analysis_id,
             'business_name': business_name,
             'business_type': business_type,
             'location': location,
             'owner_type': owner_type,
-            'lat': float(latitude) if latitude else None,
-            'lon': float(longitude) if longitude else None,
+            # Use latitude/longitude (not lat/lon) for frontend consistency
+            'latitude': float(latitude) if latitude else None,
+            'longitude': float(longitude) if longitude else None,
             'radius': radius,
-            'success_score': features['success_score'],
-            'recommendation': features['recommendation'],
+            # Flattened features
+            'success_score': features.get('success_score', 0),
+            'recommendation': features.get('recommendation', ''),
+            'market_saturation': features.get('market_saturation', 0),
+            'avg_competitor_rating': features.get('avg_competitor_rating', 0),
+            'competitors_count': features.get('competitors_count', len(competitors_data)),
+            # Flattened AI insights (match dashboard keys)
+            'market_analysis': ai_insights.get('full_analysis', ai_insights.get('market_analysis', '')),
+            'competitive_landscape': ai_insights.get('sentiment', ai_insights.get('competitive_landscape', '')),
+            'customer_insights': ai_insights.get('opportunity', ai_insights.get('customer_insights', '')),
+            'strategic_recommendations': ai_insights.get('recommendations', ai_insights.get('strategic_recommendations', '')),
+            'risk_assessment': ai_insights.get('risks', ai_insights.get('risk_assessment', '')),
+            'pricing_insights': ai_insights.get('pricing', ''),
+            # Raw nested data (for advanced use)
             'features': features,
             'ai_insights': ai_insights,
-            'competitors': competitors_data[:10],  # Top 10 for display
+            # Competitors list
+            'competitors': competitors_data[:10],
             # Customer base data
             'customer_score': customer_base.get('customer_score', 0),
             'apartments_count': customer_base.get('apartments_count', 0),
@@ -528,8 +527,8 @@ def analyze():
             'heatmap_data': customer_base.get('heatmap_points', [])
         }
         
-        # Render dashboard with results
-        return render_template('dashboard.html', data=response_data, google_api_key=os.getenv('GOOGLE_MAP_API'))
+        # Return JSON response (dashboard rendered by Next.js frontend)
+        return jsonify(response_data), 200
         
     except Exception as e:
         print(f"[ERROR] Analysis failed: {str(e)}")
@@ -542,11 +541,6 @@ def analyze():
 # ============================================================================
 # ANALYSIS HISTORY ROUTES
 # ============================================================================
-
-@app.route('/history')
-def history_page():
-    """Analysis history page (authentication handled by JavaScript)"""
-    return render_template('history.html')
 
 
 @app.route('/api/history', methods=['GET'])
@@ -709,13 +703,8 @@ def download_analysis(analysis_id):
 # ============================================================================
 # UTILITY ROUTES
 # ============================================================================
-
-@app.route('/loading')
-def loading():
-    """
-    Loading page shown during analysis
-    """
-    return render_template('loading.html')
+# CHAT ROUTE
+# ============================================================================
 
 
 @app.route('/api/chat', methods=['POST'])
@@ -773,7 +762,7 @@ def chat():
 @app.errorhandler(404)
 def not_found(e):
     """Handle 404 errors"""
-    return render_template('index.html'), 404
+    return jsonify({'error': 'Not found', 'message': 'The requested resource was not found'}), 404
 
 
 @app.errorhandler(500)
