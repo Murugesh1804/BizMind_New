@@ -9,10 +9,14 @@ RAG integration allows the AI to supplement analysis with domain knowledge.
 from groq import Groq
 import os
 import re
+import logging
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from sentence_transformers import SentenceTransformer
 from langchain_core.embeddings import Embeddings
+
+# Configure module-level logger
+logger = logging.getLogger(__name__)
 
 # Global model singleton
 _model = None
@@ -25,15 +29,15 @@ def get_model():
     global _model
     if _model is None:
         import torch
-        # 4️⃣ Use Torch CPU optimizations
+        # Use Torch CPU optimizations
         torch.set_num_threads(1)
         torch.set_num_interop_threads(1)
-        # 7️⃣ Disable gradients & training features
+        # Disable gradients & training features
         torch.set_grad_enabled(False)
         
-        print("[Model] Loading embedding model (Lazy)...")
+        logger.info("[Model] Loading embedding model (Lazy)...")
         _model = SentenceTransformer(
-            "paraphrase-MiniLM-L3-v2", # Ultra-small model
+            "paraphrase-MiniLM-L3-v2",  # Ultra-small model
             device="cpu"
         )
     return _model
@@ -45,20 +49,19 @@ class LazyHuggingFaceEmbeddings(Embeddings):
     """
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
         model = get_model()
-        # Ensure we return a list of lists of floats
         embeddings = model.encode(texts, convert_to_numpy=True, normalize_embeddings=True)
         return embeddings.tolist()
 
     def embed_query(self, text: str) -> list[float]:
         model = get_model()
-        # Ensure we return a list of floats
         embedding = model.encode(text, convert_to_numpy=True, normalize_embeddings=True)
         return embedding.tolist()
 
 
 class OpenRouterClient:
     """
-    Client for Groq API (renamed from OpenRouterClient for compatibility)
+    Groq LLM Client (named OpenRouterClient for backward compatibility).
+    Handles AI insight generation and chatbot responses with optional RAG support.
     """
     
     def __init__(self, api_key, enable_rag=True, vectordb_path="vectordb"):
@@ -86,9 +89,8 @@ class OpenRouterClient:
         """
         if self.enable_rag and self.vectorstore is None:
             try:
-                print("[RAG] Initializing vector database (Lazy Load)...")
+                logger.info("[RAG] Initializing vector database (Lazy Load)...")
                 
-                # Use our optimized embeddings wrapper
                 embeddings = LazyHuggingFaceEmbeddings()
                 
                 self.vectorstore = FAISS.load_local(
@@ -96,10 +98,10 @@ class OpenRouterClient:
                     embeddings, 
                     allow_dangerous_deserialization=True
                 )
-                print("[RAG] Vector database loaded successfully")
+                logger.info("[RAG] Vector database loaded successfully")
             except Exception as e:
-                print(f"[RAG WARNING] Could not load vector database: {str(e)}")
-                print("[RAG] Continuing without RAG support")
+                logger.warning(f"[RAG] Could not load vector database: {str(e)}")
+                logger.warning("[RAG] Continuing without RAG support")
                 self.enable_rag = False
     
     def _retrieve_rag_context(self, business_type, location, features):
@@ -114,14 +116,12 @@ class OpenRouterClient:
         Returns:
             str: Retrieved context from knowledge base
         """
-        # Ensure vectorstore is loaded (Lazy Load)
         self._ensure_vectorstore_loaded()
         
         if not self.enable_rag or not self.vectorstore:
             return ""
         
         try:
-            # Build query for RAG retrieval
             query = f"""
             Business type: {business_type}
             Location: {location}
@@ -132,18 +132,17 @@ class OpenRouterClient:
             What are the key considerations, risks, and strategies for this type of business in India?
             """
             
-            # Retrieve relevant documents
             docs = self.vectorstore.similarity_search(query, k=3)
             
             if docs:
                 context = "\n\n".join([doc.page_content for doc in docs])
-                print(f"[RAG] Retrieved {len(docs)} relevant documents from knowledge base")
+                logger.info(f"[RAG] Retrieved {len(docs)} relevant documents from knowledge base")
                 return context
             else:
                 return ""
                 
         except Exception as e:
-            print(f"[RAG ERROR] Failed to retrieve context: {str(e)}")
+            logger.error(f"[RAG] Failed to retrieve context: {str(e)}")
             return ""
     
     def generate_insights(self, business_name, business_type, location, owner_type, 
@@ -159,49 +158,39 @@ class OpenRouterClient:
             features (dict): Calculated features
             compressed_reviews (str): Compressed review text
             competitors (list): List of competitors
+            customer_base (dict): Customer base indicators
             
         Returns:
             dict: AI-generated insights
         """
         try:
-            # Retrieve relevant context from RAG if enabled
             rag_context = ""
             if self.enable_rag:
-                print("[RAG] Retrieving relevant knowledge from database...")
+                logger.info("[RAG] Retrieving relevant knowledge from database...")
                 rag_context = self._retrieve_rag_context(business_type, location, features)
             
-            # Build structured prompt
             prompt = self._build_prompt(
                 business_name, business_type, location, owner_type,
                 features, compressed_reviews, competitors, rag_context, customer_base
             )
             
-            # Call Groq API
             response = self._call_api(prompt)
             
-            # Parse response
             insights = self._parse_response(response)
             
-            print("[Groq] Insights generated successfully")
+            logger.info("[Groq] Insights generated successfully")
             
             return insights
             
         except Exception as e:
-            print(f"[Groq ERROR] {str(e)}")
+            logger.error(f"[Groq] Insight generation failed: {str(e)}")
             return self._get_fallback_insights()
     
     def _build_prompt(self, business_name, business_type, location, owner_type,
                      features, compressed_reviews, competitors, rag_context="", customer_base=None):
         """
         Build structured prompt for LLM with optional RAG context
-        
-        Args:
-            rag_context (str): Additional context from RAG knowledge base
-        
-        Returns:
-            str: Formatted prompt
         """
-        # Build RAG context section if available
         rag_section = ""
         if rag_context:
             rag_section = f"""
@@ -338,7 +327,7 @@ STYLE RULES
         Returns:
             str: API response text
         """
-        print("[Groq] Generating AI insights...")
+        logger.info("[Groq] Generating AI insights...")
         
         response = self.client.chat.completions.create(
             model=self.model,
@@ -364,12 +353,9 @@ STYLE RULES
         Returns:
             dict: Structured insights
         """
-        print("\n[DEBUG] Full LLM Response:")
-        print("=" * 80)
-        print(response_text)
-        print("=" * 80)
+        # Only log the full response at DEBUG level (not shown in production)
+        logger.debug(f"[Groq] Full LLM Response:\n{'='*80}\n{response_text}\n{'='*80}")
         
-        # Extract sections using improved method
         insights = {
             'sentiment': self._extract_section_improved(response_text, "Customer Sentiment"),
             'opportunity': self._extract_section_improved(response_text, "Market Opportunity"),
@@ -380,12 +366,10 @@ STYLE RULES
             'full_analysis': response_text
         }
         
-        # Debug: Print extracted sections
-        print("\n[DEBUG] Extracted Sections:")
+        # Log section summaries at debug level only
         for key, value in insights.items():
             if key != 'full_analysis':
-                print(f"\n{key.upper()}:")
-                print(value[:300] if len(value) > 300 else value)
+                logger.debug(f"[Groq] Extracted [{key}]: {value[:200] if len(value) > 200 else value}")
         
         return insights
     
@@ -398,8 +382,8 @@ STYLE RULES
             section_name (str): Section to extract
             
         Returns:
+            str: Extracted section content
         """
-        # Define header patterns for each section
         patterns = {
             "Customer Sentiment": [
                 r'###\s*\d+\.\s*Customer Sentiment',
@@ -463,13 +447,12 @@ STYLE RULES
         
         lines = text.split('\n')
         
-        # Find the start of this section
         start_idx = None
         for i, line in enumerate(lines):
             stripped = line.strip()
             for pattern in section_patterns:
                 if re.search(pattern, stripped, re.IGNORECASE | re.MULTILINE):
-                    start_idx = i + 1  # Start from next line
+                    start_idx = i + 1
                     break
             if start_idx is not None:
                 break
@@ -477,7 +460,6 @@ STYLE RULES
         if start_idx is None:
             return "No data available"
         
-        # Find the end of this section (next section header or end of text)
         end_idx = len(lines)
         all_patterns = []
         for plist in patterns.values():
@@ -488,10 +470,8 @@ STYLE RULES
             if not stripped:
                 continue
                 
-            # Check if this is a new section header
             for pattern in all_patterns:
                 if re.search(pattern, stripped, re.IGNORECASE | re.MULTILINE):
-                    # Make sure it's not the same section
                     is_same = False
                     for our_pattern in section_patterns:
                         if re.search(our_pattern, stripped, re.IGNORECASE | re.MULTILINE):
@@ -505,24 +485,18 @@ STYLE RULES
             if end_idx < len(lines):
                 break
         
-        # Extract and clean the content
         section_lines = []
         for i in range(start_idx, end_idx):
             line = lines[i].strip()
             
-            # Skip empty lines
             if not line:
                 continue
             
-            # Skip lines that are just markdown or formatting
             if line in ['**', '###', '---', '***']:
                 continue
             
-            # Clean up the line
-            # Remove leading asterisks from bullet points but keep the dash/bullet
             cleaned_line = line
             
-            # Normalize bullet points to use dash
             if re.match(r'^[\*\-•]\s+', cleaned_line):
                 cleaned_line = re.sub(r'^[\*\-•]\s+', '- ', cleaned_line)
             
@@ -530,7 +504,6 @@ STYLE RULES
         
         result = '\n'.join(section_lines)
         
-        # If no content found, return default message
         if not result.strip():
             return "No data available"
         
@@ -558,16 +531,14 @@ STYLE RULES
         
         Args:
             message (str): User's message
-            context (dict): Optional context about current analysis or user
+            context (str): Optional context about current analysis or user
             
         Returns:
             str: Chatbot response
         """
         try:
-            # Retrieve RAG context for the user's question if enabled
             rag_context = ""
             
-            # Ensure vectorstore is loaded (Lazy Load)
             self._ensure_vectorstore_loaded()
             
             if self.enable_rag and self.vectorstore:
@@ -575,11 +546,10 @@ STYLE RULES
                     docs = self.vectorstore.similarity_search(message, k=2)
                     if docs:
                         rag_context = "\n\n".join([doc.page_content for doc in docs])
-                        print(f"[RAG Chat] Retrieved {len(docs)} relevant documents")
+                        logger.debug(f"[RAG Chat] Retrieved {len(docs)} relevant documents")
                 except Exception as e:
-                    print(f"[RAG Chat ERROR] {str(e)}")
+                    logger.warning(f"[RAG Chat] Retrieval failed: {str(e)}")
             
-            # Build RAG section if available
             rag_section = ""
             if rag_context:
                 rag_section = f"""
@@ -592,7 +562,6 @@ is insufficient. Always prioritize the user's specific analysis data if provided
 If you use this supplemental knowledge, mention: "Based on general business knowledge..."
 """
             
-            # Build system prompt for bBot
             system_prompt = f"""You are **bBot**, the AI assistant for **BizMind – an AI Business Location Decision Support System for India**.
 
 PRIMARY ROLE
@@ -644,12 +613,9 @@ GOAL
 Help the user make **clear, confident business location decisions in India**.
 """
 
-            # Add context if available
             if context:
-                context_str = f"\n\nCurrent User Context:\n{context}"
-                system_prompt += context_str
+                system_prompt += f"\n\nCurrent User Context:\n{context}"
 
-            # Call Groq API
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
@@ -663,5 +629,5 @@ Help the user make **clear, confident business location decisions in India**.
             return response.choices[0].message.content
             
         except Exception as e:
-            print(f"[Groq Chat ERROR] {str(e)}")
+            logger.error(f"[Groq Chat] Failed: {str(e)}")
             return "I'm having trouble connecting right now. Please try again in a moment."

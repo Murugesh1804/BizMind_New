@@ -1,9 +1,10 @@
 'use client';
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/context/AuthContext';
+import { useState } from 'react';
 import DashboardNav from '@/components/DashboardNav';
+import { DashboardErrorBoundary } from '@/components/ErrorBoundary';
 import { formatInsight } from '@/lib/formatInsight';
+import { useAnalysisData } from '@/lib/hooks';
+import type { AnalysisResult } from '@/lib/types';
 
 const TH = { fontFamily: "'Tiempos Headline', 'Playfair Display', serif" };
 
@@ -109,16 +110,7 @@ function InsightCard({ section, content }: { section: typeof SECTIONS[0]; conten
 }
 
 export default function InsightsPage() {
-    const router = useRouter();
-    const { user, isLoading } = useAuth();
-    const [data, setData] = useState<any>(null);
-
-    useEffect(() => {
-        if (!isLoading && !user) { router.push('/login'); return; }
-        const raw = sessionStorage.getItem('analysisResult');
-        if (!raw) { router.push('/'); return; }
-        setData(JSON.parse(raw));
-    }, [isLoading, user, router]);
+    const { data, isLoading } = useAnalysisData();
 
     if (!data || isLoading) {
         return (
@@ -142,63 +134,60 @@ export default function InsightsPage() {
     const availableCount = SECTIONS.filter(s => contentMap[s.key] && contentMap[s.key] !== 'No data available').length;
 
     return (
-        <div className="pt-16">
-            <DashboardNav />
-            <main className="pt-6 pb-20 px-4 md:px-6 max-w-5xl mx-auto space-y-6" style={{ fontFamily: 'Inter, sans-serif' }}>
+        <DashboardErrorBoundary>
+            <div className="pt-16">
+                <DashboardNav />
+                <main className="pt-6 pb-20 px-4 md:px-6 max-w-5xl mx-auto space-y-6" style={{ fontFamily: 'Inter, sans-serif' }}>
 
-                {/* Header */}
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-2xl font-bold text-[#2D2D2D]" style={TH}>AI Insights</h1>
-                        <p className="text-sm text-[#6B7280] mt-0.5">
-                            {availableCount} of {SECTIONS.length} sections available · {data.business_name}
-                        </p>
-                    </div>
-                    {/* Powered by badge */}
-                    <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-[#F9F9F8] border border-[#E5E5E5] rounded-full">
-                        <span className="material-symbols-outlined text-[#1d73c9]" style={{ fontSize: '14px' }}>auto_awesome</span>
-                        <span className="text-xs font-medium text-[#6B7280]">Powered by Groq AI + RAG</span>
-                    </div>
-                </div>
-
-                {/* Legend */}
-                <div className="flex items-center gap-2 text-xs text-[#6B7280] bg-[#F9F9F8] border border-[#E5E5E5] rounded-lg px-4 py-2.5">
-                    <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>info</span>
-                    <span>
-                        <strong className="text-[#2D2D2D]">Bold text</strong> highlights key findings.
-                        Click any card header to collapse/expand.
-                    </span>
-                </div>
-
-                {/* Insight cards — 2 column grid on md+ */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    {SECTIONS.map((sec) => (
-                        <InsightCard
-                            key={sec.key}
-                            section={sec}
-                            content={contentMap[sec.key]}
-                        />
-                    ))}
-                </div>
-
-                {/* Full analysis fallback */}
-                {data.market_analysis && (
-                    <div className="bg-[#111921] text-white rounded-2xl p-7 relative overflow-hidden">
-                        <div className="relative z-10 space-y-4">
-                            <div className="flex items-center gap-3">
-                                <span className="material-symbols-outlined text-[#1d73c9]" style={{ fontSize: '22px', fontVariationSettings: "'FILL' 1" }}>article</span>
-                                <h2 className="text-lg font-bold" style={TH}>Full AI Analysis</h2>
-                            </div>
-                            <div
-                                className="ai-insight-content text-slate-300"
-                                dangerouslySetInnerHTML={{ __html: formatInsight(data.market_analysis) }}
-                            />
+                    {/* Header */}
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h1 className="text-2xl font-bold text-[#2D2D2D]" style={TH}>AI Insights</h1>
+                            <p className="text-sm text-[#6B7280] mt-0.5">
+                                {availableCount} of {SECTIONS.length} sections available · {data.business_name}
+                            </p>
                         </div>
-                        <div className="absolute top-0 right-0 w-64 h-64 bg-[#1d73c9]/15 rounded-full blur-[80px] -mr-20 -mt-20 pointer-events-none" />
                     </div>
-                )}
 
-            </main>
-        </div>
+                    {/* Legend */}
+                    <div className="flex items-center gap-2 text-xs text-[#6B7280] bg-[#F9F9F8] border border-[#E5E5E5] rounded-lg px-4 py-2.5">
+                        <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>info</span>
+                        <span>
+                            <strong className="text-[#2D2D2D]">Bold text</strong> highlights key findings.
+                            Click any card header to collapse/expand.
+                        </span>
+                    </div>
+
+                    {/* Insight cards — 2 column grid on md+ */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        {SECTIONS.map((sec) => (
+                            <InsightCard
+                                key={sec.key}
+                                section={sec}
+                                content={contentMap[sec.key]}
+                            />
+                        ))}
+                    </div>
+
+                    {/* Full analysis fallback */}
+                    {data.market_analysis && (
+                        <div className="bg-[#111921] text-white rounded-2xl p-7 relative overflow-hidden">
+                            <div className="relative z-10 space-y-4">
+                                <div className="flex items-center gap-3">
+                                    <span className="material-symbols-outlined text-[#1d73c9]" style={{ fontSize: '22px', fontVariationSettings: "'FILL' 1" }}>article</span>
+                                    <h2 className="text-lg font-bold" style={TH}>Full AI Analysis</h2>
+                                </div>
+                                <div
+                                    className="ai-insight-content text-slate-300"
+                                    dangerouslySetInnerHTML={{ __html: formatInsight(data.market_analysis) }}
+                                />
+                            </div>
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-[#1d73c9]/15 rounded-full blur-[80px] -mr-20 -mt-20 pointer-events-none" />
+                        </div>
+                    )}
+
+                </main>
+            </div>
+        </DashboardErrorBoundary>
     );
 }

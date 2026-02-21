@@ -11,7 +11,7 @@ This file handles:
 - Database persistence
 """
 
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify, send_file, render_template
 from flask_cors import CORS
 from dotenv import load_dotenv
 import os
@@ -22,18 +22,29 @@ from io import BytesIO
 from modules.google_maps import GoogleMapsClient
 from modules.feature_engineering import FeatureEngineer
 from modules.llm_compression import LLMLinguaCompressor
-from modules.openrouter import OpenRouterClient
+from modules.openrouter import OpenRouterClient  # Module uses Groq API (originally designed for OpenRouter; name kept for backward compat)
 from modules.auth import create_auth_manager
 from database import db
 
+# Global analysis progress tracker (User ID -> Progress Info)
+ANALYSIS_PROGRESS = {}
+
 # Load environment variables
 load_dotenv()
+
+# Configure logging
+import logging
+logging.basicConfig(
+    level=logging.DEBUG if os.getenv('FLASK_DEBUG', '').lower() in ('1', 'true') else logging.WARNING,
+    format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
+    datefmt='%H:%M:%S'
+)
 
 # Initialize Flask app
 app = Flask(__name__)
 
 # Enable CORS for Next.js frontend
-CORS(app, origins=["http://localhost:3000","https://bizmind.tech"], supports_credentials=True)
+CORS(app, origins=["http://localhost:5173","https://bizmind.tech"], supports_credentials=True)
 
 # Security: Enforce environment variables for secrets in production
 # Fallback strictly for local development only
@@ -218,7 +229,7 @@ def register():
         print(f"[ERROR] Registration failed: {str(e)}")
         return jsonify({
             'error': 'Registration failed',
-            'message': str(e)
+            'message': 'An unexpected error occurred. Please try again.'
         }), 500
 
 
@@ -281,7 +292,7 @@ def login():
         print(f"[ERROR] Login failed: {str(e)}")
         return jsonify({
             'error': 'Login failed',
-            'message': str(e)
+            'message': 'An unexpected error occurred. Please try again.'
         }), 500
 
 
@@ -311,7 +322,7 @@ def get_current_user():
         print(f"[ERROR] Get user failed: {str(e)}")
         return jsonify({
             'error': 'Failed to get user info',
-            'message': str(e)
+            'message': 'An unexpected error occurred. Please try again.'
         }), 500
 
 
@@ -339,6 +350,9 @@ def analyze():
         # Get authenticated user
         user_id = request.current_user['user_id']
         
+        # Reset progress for this user
+        ANALYSIS_PROGRESS[user_id] = {"step": 0, "status": "Starting analysis...", "progress": 5}
+        
         # Step 1: Extract form data
         business_name = request.form.get('business_name', '').strip()
         business_type = request.form.get('business_type', '').strip()
@@ -363,6 +377,7 @@ def analyze():
         
         # Step 2: Geocode location if coordinates not provided
         if not latitude or not longitude:
+            ANALYSIS_PROGRESS[user_id] = {"step": 0, "status": "Identifying location coordinates...", "progress": 10}
             print(f"[INFO] No coordinates provided, geocoding location: {location}")
             coords = google_maps_client.geocode(location)
             if coords:
@@ -373,6 +388,7 @@ def analyze():
                 print(f"[WARN] Geocoding failed, will search by location name only")
         
         # Step 3: Fetch competitor data from Google Maps
+        ANALYSIS_PROGRESS[user_id] = {"step": 1, "status": "Scanning nearby competition...", "progress": 25}
         print(f"[INFO] Fetching competitor data for: {business_type} in {location}")
         
         # Pass coordinates if available for more precise search
@@ -402,6 +418,7 @@ def analyze():
         features = feature_engineer.calculate_features(competitors_data)
         
         # Step 4.5: Fetch customer base data
+        ANALYSIS_PROGRESS[user_id] = {"step": 2, "status": "Analyzing customer demographics...", "progress": 45}
         print("[INFO] Fetching customer base indicators...")
         customer_base = {}
         if latitude and longitude:
@@ -435,6 +452,7 @@ def analyze():
             }
         
         # Step 5: Compress review data using LLMLingua (limit to 50 reviews for speed)
+        ANALYSIS_PROGRESS[user_id] = {"step": 3, "status": "Processing customer sentiment...", "progress": 65}
         print("[INFO] Compressing review data with LLMLingua")
         all_reviews = []
         for comp in competitors_data:
@@ -446,6 +464,7 @@ def analyze():
         compressed_reviews = compressor.compress_reviews(all_reviews)
         
         # Step 6: Generate AI insights using OpenRouter
+        ANALYSIS_PROGRESS[user_id] = {"step": 4, "status": "Generating strategic insights...", "progress": 85}
         print("[INFO] Generating AI insights via OpenRouter")
         ai_insights = openrouter_client.generate_insights(
             business_name=business_name,
@@ -459,6 +478,7 @@ def analyze():
         )
         
         # Step 7: Save analysis to database
+        ANALYSIS_PROGRESS[user_id] = {"step": 5, "status": "Finalizing success probability...", "progress": 95}
         print("[INFO] Saving analysis to database")
         
         # Prepare strategy data (complete AI insights for storage)
@@ -527,15 +547,31 @@ def analyze():
             'heatmap_data': customer_base.get('heatmap_points', [])
         }
         
+        # Clear progress on completion
+        ANALYSIS_PROGRESS.pop(user_id, None)
+        
         # Return JSON response (dashboard rendered by Next.js frontend)
         return jsonify(response_data), 200
         
     except Exception as e:
+        # Clear progress on failure
+        ANALYSIS_PROGRESS.pop(user_id, None)
         print(f"[ERROR] Analysis failed: {str(e)}")
         return jsonify({
             'error': 'Analysis failed',
-            'message': str(e)
+            'message': 'Analysis could not be completed. Please try again.'
         }), 500
+
+
+@app.route('/api/analyze/progress', methods=['GET'])
+@auth_manager.require_auth
+def get_analysis_progress():
+    """
+    Get current progress of analysis for the logged-in user
+    """
+    user_id = request.current_user['user_id']
+    progress = ANALYSIS_PROGRESS.get(user_id, {"step": -1, "status": "idle", "progress": 0})
+    return jsonify(progress), 200
 
 
 # ============================================================================
@@ -579,7 +615,7 @@ def get_history():
         print(f"[ERROR] Get history failed: {str(e)}")
         return jsonify({
             'error': 'Failed to get history',
-            'message': str(e)
+            'message': 'An unexpected error occurred. Please try again.'
         }), 500
 
 
@@ -605,7 +641,7 @@ def get_analysis(analysis_id):
         print(f"[ERROR] Get analysis failed: {str(e)}")
         return jsonify({
             'error': 'Failed to get analysis',
-            'message': str(e)
+            'message': 'An unexpected error occurred. Please try again.'
         }), 500
 
 
@@ -631,7 +667,7 @@ def delete_analysis(analysis_id):
         print(f"[ERROR] Delete analysis failed: {str(e)}")
         return jsonify({
             'error': 'Failed to delete analysis',
-            'message': str(e)
+            'message': 'An unexpected error occurred. Please try again.'
         }), 500
 
 
@@ -696,7 +732,7 @@ def download_analysis(analysis_id):
         print(f"[ERROR] Download failed: {str(e)}")
         return jsonify({
             'error': 'Download failed',
-            'message': str(e)
+            'message': 'An unexpected error occurred. Please try again.'
         }), 500
 
 
@@ -708,6 +744,7 @@ def download_analysis(analysis_id):
 
 
 @app.route('/api/chat', methods=['POST'])
+@auth_manager.require_auth
 def chat():
     """
     Chatbot endpoint for bBot

@@ -1,9 +1,10 @@
 'use client';
-import { useEffect, useState, useRef } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/context/AuthContext';
+import { useState } from 'react';
 import DashboardNav from '@/components/DashboardNav';
+import { DashboardErrorBoundary } from '@/components/ErrorBoundary';
 import { formatInsight } from '@/lib/formatInsight';
+import { useAnalysisData } from '@/lib/hooks';
+import type { AnalysisResult, FeatureData } from '@/lib/types';
 
 const TH = { fontFamily: "'Tiempos Headline', 'Playfair Display', serif" };
 
@@ -237,17 +238,8 @@ function buildPrintHTML(data: any): string {
 }
 
 export default function ReportPage() {
-    const router = useRouter();
-    const { user, isLoading } = useAuth();
-    const [data, setData] = useState<any>(null);
+    const { data, isLoading } = useAnalysisData();
     const [printing, setPrinting] = useState(false);
-
-    useEffect(() => {
-        if (!isLoading && !user) { router.push('/login'); return; }
-        const raw = sessionStorage.getItem('analysisResult');
-        if (!raw) { router.push('/'); return; }
-        setData(JSON.parse(raw));
-    }, [isLoading, user, router]);
 
     const handlePrint = () => {
         if (!data) return;
@@ -281,7 +273,7 @@ export default function ReportPage() {
     }
 
     const scorePct = Math.round((data.success_score / 10) * 100);
-    const features = data.features || {};
+    const features = (data.features || {}) as Partial<FeatureData>;
     const date = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
     const recommendation = data.recommendation || (
         data.success_score >= 7 ? 'Strongly Recommended' :
@@ -312,179 +304,181 @@ export default function ReportPage() {
     };
 
     return (
-        <div className="pt-16">
-            <DashboardNav />
-            <main className="pt-6 pb-20 px-4 md:px-6 max-w-5xl mx-auto space-y-8" style={{ fontFamily: 'Inter, sans-serif' }}>
+        <DashboardErrorBoundary>
+            <div className="pt-16">
+                <DashboardNav />
+                <main className="pt-6 pb-20 px-4 md:px-6 max-w-5xl mx-auto space-y-8" style={{ fontFamily: 'Inter, sans-serif' }}>
 
-                {/* Header + actions */}
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-2xl font-bold text-[#2D2D2D]" style={TH}>Full Report</h1>
-                        <p className="text-sm text-[#6B7280] mt-0.5">Generated on {date} · Analysis #{data.analysis_id || '—'}</p>
+                    {/* Header + actions */}
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h1 className="text-2xl font-bold text-[#2D2D2D]" style={TH}>Full Report</h1>
+                            <p className="text-sm text-[#6B7280] mt-0.5">Generated on {date} · Analysis #{data.analysis_id || '—'}</p>
+                        </div>
+                        <button
+                            onClick={handlePrint}
+                            disabled={printing}
+                            className="flex items-center gap-2 px-5 py-2.5 bg-[#1d73c9] text-white text-sm font-bold rounded-lg hover:bg-[#155fa0] transition-all shadow-sm disabled:opacity-60"
+                        >
+                            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>
+                                {printing ? 'hourglass_top' : 'print'}
+                            </span>
+                            {printing ? 'Printing…' : 'Download PDF'}
+                        </button>
                     </div>
-                    <button
-                        onClick={handlePrint}
-                        disabled={printing}
-                        className="flex items-center gap-2 px-5 py-2.5 bg-[#1d73c9] text-white text-sm font-bold rounded-lg hover:bg-[#155fa0] transition-all shadow-sm disabled:opacity-60"
-                    >
-                        <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>
-                            {printing ? 'hourglass_top' : 'print'}
-                        </span>
-                        {printing ? 'Printing…' : 'Download PDF'}
-                    </button>
-                </div>
 
-                {/* Report preview card */}
-                <div className="bg-white rounded-xl border border-[#E5E5E5] overflow-hidden shadow-sm">
+                    {/* Report preview card */}
+                    <div className="bg-white rounded-xl border border-[#E5E5E5] overflow-hidden shadow-sm">
 
-                    {/* Cover strip */}
-                    <div className="bg-[#111921] px-8 py-8 relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-48 h-48 bg-[#1d73c9]/15 rounded-full blur-[60px] -mr-16 -mt-16" />
-                        <div className="relative z-10">
-                            <p className="text-[#1d73c9] text-xs font-bold tracking-widest mb-4 flex items-center gap-2">
-                                <span className="w-1.5 h-1.5 rounded-full bg-[#1d73c9]" />
-                                BIZMIND · AI BUSINESS LOCATION ANALYSIS
-                            </p>
-                            <h2 className="text-white text-3xl font-bold" style={TH}>{data.business_name}</h2>
-                            <p className="text-slate-400 text-sm mt-1">{data.business_type} · {data.location}</p>
-                            <div className="flex items-center gap-3 mt-4 flex-wrap">
-                                <span className={`text-xs font-bold px-3 py-1 rounded-full border ${recCls}`}>{recommendation}</span>
-                                <span className="text-xs text-slate-500 border border-slate-700 rounded-full px-3 py-1">
-                                    {data.owner_type === 'new' ? 'New Entrepreneur' : 'Existing Business'}
-                                </span>
-                                <span className="text-xs text-slate-500 border border-slate-700 rounded-full px-3 py-1">
-                                    {data.radius}m radius
-                                </span>
+                        {/* Cover strip */}
+                        <div className="bg-[#111921] px-8 py-8 relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-48 h-48 bg-[#1d73c9]/15 rounded-full blur-[60px] -mr-16 -mt-16" />
+                            <div className="relative z-10">
+                                <p className="text-[#1d73c9] text-xs font-bold tracking-widest mb-4 flex items-center gap-2">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-[#1d73c9]" />
+                                    BIZMIND · AI BUSINESS LOCATION ANALYSIS
+                                </p>
+                                <h2 className="text-white text-3xl font-bold" style={TH}>{data.business_name}</h2>
+                                <p className="text-slate-400 text-sm mt-1">{data.business_type} · {data.location}</p>
+                                <div className="flex items-center gap-3 mt-4 flex-wrap">
+                                    <span className={`text-xs font-bold px-3 py-1 rounded-full border ${recCls}`}>{recommendation}</span>
+                                    <span className="text-xs text-slate-500 border border-slate-700 rounded-full px-3 py-1">
+                                        {data.owner_type === 'new' ? 'New Entrepreneur' : 'Existing Business'}
+                                    </span>
+                                    <span className="text-xs text-slate-500 border border-slate-700 rounded-full px-3 py-1">
+                                        {data.radius}m radius
+                                    </span>
+                                </div>
                             </div>
                         </div>
-                    </div>
 
-                    <div className="p-8 space-y-8">
+                        <div className="p-8 space-y-8">
 
-                        {/* Score summary row */}
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            {[
-                                { label: 'Success Score', value: `${scorePct}%`, icon: 'verified' },
-                                { label: 'Competitors', value: data.competitors_count ?? data.competitors?.length ?? '—', icon: 'storefront' },
-                                { label: 'Avg Rating', value: data.avg_competitor_rating ? `${parseFloat(data.avg_competitor_rating).toFixed(1)} ★` : '—', icon: 'star' },
-                                { label: 'Customer Score', value: data.customer_score ? `${data.customer_score}/100` : '—', icon: 'groups' },
-                            ].map((m, i) => (
-                                <div key={i} className="bg-[#F9F9F8] border border-[#E5E5E5] rounded-xl p-4">
-                                    <p className="text-[10px] font-bold uppercase tracking-wider text-[#6B7280]">{m.label}</p>
-                                    <p className="text-xl font-bold text-[#1d73c9] mt-1" style={TH}>{m.value}</p>
-                                </div>
-                            ))}
-                        </div>
-
-                        {/* Sub-score bars */}
-                        <div className="space-y-3">
-                            <h3 className="text-sm font-bold text-[#2D2D2D]" style={TH}>Score Breakdown</h3>
-                            {[
-                                { l: 'Competition', v: features.competition_score ?? 0 },
-                                { l: 'Demand', v: features.demand_score ?? 0 },
-                                { l: 'Rating', v: features.rating_score ?? 0 },
-                                { l: 'Opportunity', v: features.opportunity_score ?? 0 },
-                            ].map(s => (
-                                <div key={s.l} className="flex items-center gap-4">
-                                    <span className="text-xs text-[#6B7280] w-24 shrink-0">{s.l}</span>
-                                    <div className="flex-1 h-2 bg-[#F3F4F6] rounded-full overflow-hidden">
-                                        <div className="h-full bg-[#1d73c9] rounded-full" style={{ width: `${Math.round(s.v * 100)}%` }} />
-                                    </div>
-                                    <span className="text-xs font-bold text-[#2D2D2D] w-10 text-right">{Math.round(s.v * 100)}%</span>
-                                </div>
-                            ))}
-                        </div>
-
-                        {/* Customer base */}
-                        <div>
-                            <h3 className="text-sm font-bold text-[#2D2D2D] mb-4" style={TH}>Customer Base</h3>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            {/* Score summary row */}
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                 {[
-                                    { icon: 'apartment', label: 'Residential', val: data.apartments_count ?? 0 },
-                                    { icon: 'school', label: 'Education', val: data.education_count ?? 0 },
-                                    { icon: 'business', label: 'Offices', val: data.offices_count ?? 0 },
-                                    { icon: 'directions_bus', label: 'Transit', val: data.transit_count ?? 0 },
-                                ].map((p) => (
-                                    <div key={p.label} className="bg-[#F9F9F8] border border-[#E5E5E5] rounded-xl p-4 flex items-center gap-3">
-                                        <span className="material-symbols-outlined text-[#1d73c9]" style={{ fontSize: '20px' }}>{p.icon}</span>
-                                        <div>
-                                            <p className="text-xl font-bold text-[#2D2D2D]" style={TH}>{p.val}</p>
-                                            <p className="text-[10px] text-[#6B7280] font-medium">{p.label}</p>
-                                        </div>
+                                    { label: 'Success Score', value: `${scorePct}%`, icon: 'verified' },
+                                    { label: 'Competitors', value: data.competitors_count ?? data.competitors?.length ?? '—', icon: 'storefront' },
+                                    { label: 'Avg Rating', value: data.avg_competitor_rating != null ? `${parseFloat(String(data.avg_competitor_rating)).toFixed(1)} ★` : '—', icon: 'star' },
+                                    { label: 'Customer Score', value: data.customer_score ? `${data.customer_score}/100` : '—', icon: 'groups' },
+                                ].map((m, i) => (
+                                    <div key={i} className="bg-[#F9F9F8] border border-[#E5E5E5] rounded-xl p-4">
+                                        <p className="text-[10px] font-bold uppercase tracking-wider text-[#6B7280]">{m.label}</p>
+                                        <p className="text-xl font-bold text-[#1d73c9] mt-1" style={TH}>{m.value}</p>
                                     </div>
                                 ))}
                             </div>
-                        </div>
 
-                        {/* Competitors table */}
-                        {(data.competitors?.length > 0) && (
-                            <div>
-                                <h3 className="text-sm font-bold text-[#2D2D2D] mb-4" style={TH}>Nearby Competitors</h3>
-                                <div className="overflow-x-auto rounded-xl border border-[#E5E5E5]">
-                                    <table className="w-full text-xs">
-                                        <thead className="bg-[#F9F9F8] border-b border-[#E5E5E5]">
-                                            <tr>
-                                                {['Name', 'Rating', 'Reviews', 'Distance'].map(h => (
-                                                    <th key={h} className="text-left p-3 font-bold text-[10px] uppercase tracking-wider text-[#6B7280]">{h}</th>
-                                                ))}
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {data.competitors.slice(0, 8).map((c: any, i: number) => (
-                                                <tr key={i} className="border-b border-[#F3F4F6] hover:bg-[#F9F9F8] transition-colors">
-                                                    <td className="p-3 font-medium text-[#2D2D2D]">{c.name}</td>
-                                                    <td className="p-3 text-amber-600 font-medium">{c.rating ? `${parseFloat(c.rating).toFixed(1)} ★` : '—'}</td>
-                                                    <td className="p-3 text-[#6B7280]">{c.reviews_count?.toLocaleString() || '—'}</td>
-                                                    <td className="p-3 text-[#6B7280]">{c.distance_km ? `${c.distance_km} km` : '—'}</td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* AI Insight sections preview */}
-                        <div>
-                            <h3 className="text-sm font-bold text-[#2D2D2D] mb-4" style={TH}>AI-Generated Insights</h3>
-                            <div className="space-y-4">
-                                {INSIGHT_SECTIONS.map(sec => {
-                                    const content = contentMap[sec.key];
-                                    if (!content || content === 'No data available') return null;
-                                    return (
-                                        <div key={sec.key} className="border-l-2 border-[#1d73c9] pl-4">
-                                            <p className="text-xs font-bold text-[#2D2D2D] flex items-center gap-1.5 mb-2" style={TH}>
-                                                <span className="material-symbols-outlined text-[#1d73c9]" style={{ fontSize: '14px' }}>{sec.icon}</span>
-                                                {sec.label}
-                                            </p>
-                                            <div className="ai-insight-content" dangerouslySetInnerHTML={{ __html: formatInsight(content) }} />
+                            {/* Sub-score bars */}
+                            <div className="space-y-3">
+                                <h3 className="text-sm font-bold text-[#2D2D2D]" style={TH}>Score Breakdown</h3>
+                                {[
+                                    { l: 'Competition', v: features.competition_score ?? 0 },
+                                    { l: 'Demand', v: features.demand_score ?? 0 },
+                                    { l: 'Rating', v: features.rating_score ?? 0 },
+                                    { l: 'Opportunity', v: features.opportunity_score ?? 0 },
+                                ].map(s => (
+                                    <div key={s.l} className="flex items-center gap-4">
+                                        <span className="text-xs text-[#6B7280] w-24 shrink-0">{s.l}</span>
+                                        <div className="flex-1 h-2 bg-[#F3F4F6] rounded-full overflow-hidden">
+                                            <div className="h-full bg-[#1d73c9] rounded-full" style={{ width: `${Math.round(s.v * 100)}%` }} />
                                         </div>
-                                    );
-                                })}
+                                        <span className="text-xs font-bold text-[#2D2D2D] w-10 text-right">{Math.round(s.v * 100)}%</span>
+                                    </div>
+                                ))}
                             </div>
-                        </div>
 
-                        {/* Metadata */}
-                        <div className="pt-4 border-t border-[#E5E5E5] grid grid-cols-2 md:grid-cols-3 gap-3 text-xs">
-                            {[
-                                { l: 'Analysis ID', v: `#${data.analysis_id || '—'}` },
-                                { l: 'Generated', v: date },
-                                { l: 'Owner Type', v: data.owner_type === 'new' ? 'New Entrepreneur' : 'Existing Business' },
-                                { l: 'Search Radius', v: `${data.radius}m` },
-                                { l: 'Coordinates', v: data.latitude ? `${parseFloat(data.latitude).toFixed(4)}, ${parseFloat(data.longitude).toFixed(4)}` : 'N/A' },
-                                { l: 'Total Reviews', v: features.total_reviews?.toLocaleString() ?? '—' },
-                            ].map((m) => (
-                                <div key={m.l} className="bg-[#F9F9F8] border border-[#E5E5E5] rounded-lg p-3">
-                                    <p className="text-[10px] uppercase tracking-wider text-[#9CA3AF] font-bold">{m.l}</p>
-                                    <p className="font-bold text-[#2D2D2D] mt-0.5">{m.v}</p>
+                            {/* Customer base */}
+                            <div>
+                                <h3 className="text-sm font-bold text-[#2D2D2D] mb-4" style={TH}>Customer Base</h3>
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                    {[
+                                        { icon: 'apartment', label: 'Residential', val: data.apartments_count ?? 0 },
+                                        { icon: 'school', label: 'Education', val: data.education_count ?? 0 },
+                                        { icon: 'business', label: 'Offices', val: data.offices_count ?? 0 },
+                                        { icon: 'directions_bus', label: 'Transit', val: data.transit_count ?? 0 },
+                                    ].map((p) => (
+                                        <div key={p.label} className="bg-[#F9F9F8] border border-[#E5E5E5] rounded-xl p-4 flex items-center gap-3">
+                                            <span className="material-symbols-outlined text-[#1d73c9]" style={{ fontSize: '20px' }}>{p.icon}</span>
+                                            <div>
+                                                <p className="text-xl font-bold text-[#2D2D2D]" style={TH}>{p.val}</p>
+                                                <p className="text-[10px] text-[#6B7280] font-medium">{p.label}</p>
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
-                            ))}
+                            </div>
+
+                            {/* Competitors table */}
+                            {((data.competitors?.length ?? 0) > 0) && (
+                                <div>
+                                    <h3 className="text-sm font-bold text-[#2D2D2D] mb-4" style={TH}>Nearby Competitors</h3>
+                                    <div className="overflow-x-auto rounded-xl border border-[#E5E5E5]">
+                                        <table className="w-full text-xs">
+                                            <thead className="bg-[#F9F9F8] border-b border-[#E5E5E5]">
+                                                <tr>
+                                                    {['Name', 'Rating', 'Reviews', 'Distance'].map(h => (
+                                                        <th key={h} className="text-left p-3 font-bold text-[10px] uppercase tracking-wider text-[#6B7280]">{h}</th>
+                                                    ))}
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {(data.competitors ?? []).slice(0, 8).map((c, i) => (
+                                                    <tr key={i} className="border-b border-[#F3F4F6] hover:bg-[#F9F9F8] transition-colors">
+                                                        <td className="p-3 font-medium text-[#2D2D2D]">{c.name}</td>
+                                                        <td className="p-3 text-amber-600 font-medium">{c.rating ? `${parseFloat(String(c.rating)).toFixed(1)} ★` : '—'}</td>
+                                                        <td className="p-3 text-[#6B7280]">{c.reviews_count?.toLocaleString() || '—'}</td>
+                                                        <td className="p-3 text-[#6B7280]">{c.distance_km ? `${c.distance_km} km` : '—'}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* AI Insight sections preview */}
+                            <div>
+                                <h3 className="text-sm font-bold text-[#2D2D2D] mb-4" style={TH}>AI-Generated Insights</h3>
+                                <div className="space-y-4">
+                                    {INSIGHT_SECTIONS.map(sec => {
+                                        const content = contentMap[sec.key];
+                                        if (!content || content === 'No data available') return null;
+                                        return (
+                                            <div key={sec.key} className="border-l-2 border-[#1d73c9] pl-4">
+                                                <p className="text-xs font-bold text-[#2D2D2D] flex items-center gap-1.5 mb-2" style={TH}>
+                                                    <span className="material-symbols-outlined text-[#1d73c9]" style={{ fontSize: '14px' }}>{sec.icon}</span>
+                                                    {sec.label}
+                                                </p>
+                                                <div className="ai-insight-content" dangerouslySetInnerHTML={{ __html: formatInsight(content) }} />
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* Metadata */}
+                            <div className="pt-4 border-t border-[#E5E5E5] grid grid-cols-2 md:grid-cols-3 gap-3 text-xs">
+                                {[
+                                    { l: 'Analysis ID', v: `#${data.analysis_id || '—'}` },
+                                    { l: 'Generated', v: date },
+                                    { l: 'Owner Type', v: data.owner_type === 'new' ? 'New Entrepreneur' : 'Existing Business' },
+                                    { l: 'Search Radius', v: `${data.radius}m` },
+                                    { l: 'Coordinates', v: data.latitude != null ? `${parseFloat(String(data.latitude)).toFixed(4)}, ${parseFloat(String(data.longitude ?? 0)).toFixed(4)}` : 'N/A' },
+                                    { l: 'Total Reviews', v: features.total_reviews?.toLocaleString() ?? '—' },
+                                ].map((m) => (
+                                    <div key={m.l} className="bg-[#F9F9F8] border border-[#E5E5E5] rounded-lg p-3">
+                                        <p className="text-[10px] uppercase tracking-wider text-[#9CA3AF] font-bold">{m.l}</p>
+                                        <p className="font-bold text-[#2D2D2D] mt-0.5">{m.v}</p>
+                                    </div>
+                                ))}
+                            </div>
+
                         </div>
-
                     </div>
-                </div>
 
-            </main>
-        </div>
+                </main>
+            </div>
+        </DashboardErrorBoundary>
     );
 }

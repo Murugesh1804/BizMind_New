@@ -51,7 +51,7 @@ export default function HomePage() {
     if (!document.getElementById('gmaps-script')) {
       const script = document.createElement('script');
       script.id = 'gmaps-script';
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=initBizMindMap`;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,visualization&callback=initBizMindMap`;
       script.async = true;
       script.defer = true;
       document.head.appendChild(script);
@@ -191,7 +191,7 @@ export default function HomePage() {
     <>
       {/* Full-screen analysis loader overlay */}
       {submitting && (
-        <AnalysisLoader businessName={businessName} businessType={businessType} />
+        <AnalysisLoader businessName={businessName} />
       )}
       <main className="pt-28 md:pt-36 pb-24 px-4 md:px-6 max-w-7xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-20 items-start">
@@ -333,7 +333,9 @@ export default function HomePage() {
                   }
                 </button>
                 <p className="text-center text-[10px] text-gray-400 uppercase tracking-widest font-bold mt-3">
-                  Estimated calculation time: 12s
+                  {submitting
+                    ? 'Running AI analysis\u2026 please wait (10\u201330s)'
+                    : 'Analysis typically takes 10\u201330s depending on location data'}
                 </p>
               </form>
             </div>

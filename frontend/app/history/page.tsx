@@ -3,15 +3,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { getHistory, getAnalysis, deleteAnalysis, downloadJSON } from '@/lib/api';
+import type { HistoryEntry, AnalysisResult } from '@/lib/types';
 
-interface Analysis {
-    id: number;
-    business_name: string;
-    business_type: string;
-    location: string;
-    success_score: number;
-    created_at: string;
-}
+
 
 function ScoreColor(score: number) {
     if (score >= 7) return 'text-emerald-600 bg-emerald-50';
@@ -22,12 +16,12 @@ function ScoreColor(score: number) {
 export default function HistoryPage() {
     const router = useRouter();
     const { user, isLoading } = useAuth();
-    const [analyses, setAnalyses] = useState<Analysis[]>([]);
+    const [analyses, setAnalyses] = useState<HistoryEntry[]>([]);
     const [totalPages, setTotalPages] = useState(1);
     const [page, setPage] = useState(1);
     const [loading, setLoading] = useState(true);
     const [selectedId, setSelectedId] = useState<number | null>(null);
-    const [detail, setDetail] = useState<any>(null);
+    const [detail, setDetail] = useState<AnalysisResult | null>(null);
     const [detailLoading, setDetailLoading] = useState(false);
     const [deletingId, setDeletingId] = useState<number | null>(null);
 
@@ -73,7 +67,7 @@ export default function HistoryPage() {
         }
     };
 
-    const handleViewDashboard = (analysis: any) => {
+    const handleViewDashboard = (analysis: AnalysisResult) => {
         sessionStorage.setItem('analysisResult', JSON.stringify(analysis));
         router.push('/dashboard');
     };

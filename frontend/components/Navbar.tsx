@@ -16,7 +16,7 @@ export default function Navbar() {
                     {/* Logo */}
                     <div className="flex-1 flex justify-center md:justify-start">
                         <Link href="/">
-                            <Image src="/logo.png" alt="BizMind" width={120} height={120} className="h-12 w-auto" />
+                            <Image src="/favicon.ico" alt="BizMind" width={120} height={120} className="h-12 w-auto" />
                         </Link>
                     </div>
 

@@ -16,6 +16,9 @@ export const getMe = () =>
 export const analyze = (formData: FormData) =>
     api.post('/api/analyze', formData).then((r) => r.data);
 
+export const getAnalysisProgress = () =>
+    api.get('/api/analyze/progress').then((r) => r.data);
+
 // ─── History ──────────────────────────────────────────────────────────────────
 
 export const getHistory = (page = 1, limit = 20) =>
