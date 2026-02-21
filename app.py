@@ -33,7 +33,7 @@ load_dotenv()
 app = Flask(__name__)
 
 # Enable CORS for Next.js frontend
-CORS(app, origins=["http://localhost:3000"], supports_credentials=True)
+CORS(app, origins=["http://localhost:3000","https://bizmind.tech"], supports_credentials=True)
 
 # Security: Enforce environment variables for secrets in production
 # Fallback strictly for local development only
