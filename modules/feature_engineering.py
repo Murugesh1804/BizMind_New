@@ -6,8 +6,51 @@ This module calculates business metrics and scores:
 - Average rating score
 - Demand indicator
 - Opportunity score
-- Final success score (0-10)
+- Final success score (0-10) - now with adaptive weighting!
 """
+
+# ============================================================================
+# ADAPTIVE WEIGHTS PER BUSINESS CATEGORY
+# ============================================================================
+# Defines how much each factor contributes to the success score based on the
+# type of business. This makes the scoring more intelligent and contextual.
+#
+# Categories:
+# - food: Restaurants, cafes, etc. Demand and ratings are critical.
+# - retail: Shops, boutiques. Competition and opportunity matter more.
+# - service: Salons, gyms, repairs. Quality (ratings) is key.
+# - professional: Offices, clinics. Less sensitive to reviews, more to density.
+#
+# Weights are: [Competition, Rating, Demand, Opportunity]
+# ============================================================================
+ADAPTIVE_WEIGHTS = {
+    "food":      [0.20, 0.30, 0.35, 0.15],
+    "retail":    [0.30, 0.20, 0.25, 0.25],
+    "service":   [0.25, 0.35, 0.25, 0.15],
+    "health":    [0.25, 0.35, 0.25, 0.15],
+    "education": [0.30, 0.25, 0.20, 0.25],
+    "default":   [0.25, 0.25, 0.30, 0.20], # Original weights
+}
+
+BUSINESS_CATEGORIES = {
+    # Food & Drink
+    "restaurant": "food", "cafe": "food", "bar": "food", "bakery": "food",
+    "food": "food", "meal_delivery": "food", "meal_takeaway": "food",
+    # Retail
+    "store": "retail", "clothing_store": "retail", "convenience_store": "retail",
+    "supermarket": "retail", "grocery_or_supermarket": "retail", "furniture_store": "retail",
+    "electronics_store": "retail", "hardware_store": "retail", "book_store": "retail",
+    "liquor_store": "retail", "pet_store": "retail", "shoe_store": "retail",
+    # Services
+    "beauty_salon": "service", "hair_care": "service", "laundry": "service",
+    "car_repair": "service", "gym": "service", "spa": "service", "travel_agency": "service",
+    # Health
+    "doctor": "health", "dentist": "health", "pharmacy": "health", "hospital": "health",
+    "physiotherapist": "health", "veterinary_care": "health",
+    # Education
+    "school": "education", "university": "education", "primary_school": "education",
+    "secondary_school": "education", "library": "education",
+}
 
 
 class FeatureEngineer:
@@ -15,12 +58,26 @@ class FeatureEngineer:
     Feature engineering for business location analysis
     """
     
-    def calculate_features(self, competitors_data):
+    def get_weights(self, business_type: str) -> list[float]:
+        """
+        Get adaptive weights for a given business type.
+        Falls back to default if type is unknown.
+        """
+        category = "default"
+        for cat_keyword, cat_name in BUSINESS_CATEGORIES.items():
+            if cat_keyword in business_type.lower():
+                category = cat_name
+                break
+        print(f"[INFO] Using '{category}' weight profile for business type '{business_type}'")
+        return ADAPTIVE_WEIGHTS[category]
+
+    def calculate_features(self, competitors_data: list, business_type: str):
         """
         Calculate all features from competitor data
         
         Args:
             competitors_data (list): List of competitor dictionaries
+            business_type (str): The type of business being analyzed
             
         Returns:
             dict: Calculated features and scores
@@ -47,7 +104,8 @@ class FeatureEngineer:
             competition_score,
             rating_score,
             demand_score,
-            opportunity_score
+            opportunity_score,
+            business_type # Pass business type for adaptive weights
         )
         
         # Determine recommendation
@@ -151,32 +209,28 @@ class FeatureEngineer:
         
         return min(max(opportunity, 0.0), 1.0)
     
-    def _calculate_success_score(self, competition_score, rating_score, demand_score, opportunity_score):
+    def _calculate_success_score(self, competition_score, rating_score, demand_score, opportunity_score, business_type):
         """
-        Calculate final success score (0-10 scale)
-        
-        Formula:
-        Success Score = (
-            0.25 × Competition Score +
-            0.25 × Rating Score +
-            0.30 × Demand Score +
-            0.20 × Opportunity Score
-        ) × 10
+        Calculate final success score (0-10 scale) using adaptive weights.
         
         Args:
             competition_score (float): Competition score
             rating_score (float): Rating score
             demand_score (float): Demand score
             opportunity_score (float): Opportunity score
+            business_type (str): The type of business for adaptive weighting
             
         Returns:
             float: Success score (0-10)
         """
+        # Get the adaptive weights for this business type
+        weights = self.get_weights(business_type)
+        
         weighted_score = (
-            0.25 * competition_score +
-            0.25 * rating_score +
-            0.30 * demand_score +
-            0.20 * opportunity_score
+            weights[0] * competition_score +
+            weights[1] * rating_score +
+            weights[2] * demand_score +
+            weights[3] * opportunity_score
         )
         
         # Scale to 0-10

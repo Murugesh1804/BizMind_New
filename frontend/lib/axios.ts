@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-    baseURL: 'https://api.bizmind.tech',
+    baseURL: 'http://localhost:5000',
 });
 
 // Attach JWT token from localStorage to every request

@@ -1,6 +1,5 @@
 'use client';
 import { useState } from 'react';
-import DashboardNav from '@/components/DashboardNav';
 import { DashboardErrorBoundary } from '@/components/ErrorBoundary';
 import { formatInsight } from '@/lib/formatInsight';
 import { useAnalysisData } from '@/lib/hooks';
@@ -135,9 +134,8 @@ export default function InsightsPage() {
 
     return (
         <DashboardErrorBoundary>
-            <div className="pt-16">
-                <DashboardNav />
-                <main className="pt-6 pb-20 px-4 md:px-6 max-w-5xl mx-auto space-y-6" style={{ fontFamily: 'Inter, sans-serif' }}>
+            <div>
+                <main className="pt-6 pb-20 px-4 md:px-6 max-w-5xl mx-auto space-y-8" style={{ fontFamily: 'Inter, sans-serif' }}>
 
                     {/* Header */}
                     <div className="flex items-center justify-between">

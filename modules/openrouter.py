@@ -146,7 +146,7 @@ class OpenRouterClient:
             return ""
     
     def generate_insights(self, business_name, business_type, location, owner_type, 
-                         features, compressed_reviews, competitors, customer_base=None):
+                         features, compressed_reviews, competitors, budget=None, customer_base=None):
         """
         Generate AI-powered business insights
         
@@ -158,6 +158,7 @@ class OpenRouterClient:
             features (dict): Calculated features
             compressed_reviews (str): Compressed review text
             competitors (list): List of competitors
+            budget (float): Provided budget in INR
             customer_base (dict): Customer base indicators
             
         Returns:
@@ -171,7 +172,7 @@ class OpenRouterClient:
             
             prompt = self._build_prompt(
                 business_name, business_type, location, owner_type,
-                features, compressed_reviews, competitors, rag_context, customer_base
+                features, compressed_reviews, competitors, rag_context, budget, customer_base
             )
             
             response = self._call_api(prompt)
@@ -187,7 +188,7 @@ class OpenRouterClient:
             return self._get_fallback_insights()
     
     def _build_prompt(self, business_name, business_type, location, owner_type,
-                     features, compressed_reviews, competitors, rag_context="", customer_base=None):
+                     features, compressed_reviews, competitors, rag_context="", budget=None, customer_base=None):
         """
         Build structured prompt for LLM with optional RAG context
         """
@@ -201,18 +202,19 @@ NOTE: The above is general domain knowledge. Use it ONLY to support reasoning wh
 the provided data below is insufficient. Always prioritize the actual data.
 """
         
-        prompt = f"""You are a senior Indian retail market strategist with 20+ years of experience
-in MSME success, street-level retail economics, and consumer behavior in India.
+        prompt = f"""You are a top-tier Indian retail market strategist with 20+ years of experience
+in MSME success, street-level retail economics, and consumer behavior across various Indian city tiers.
 
 CRITICAL GUIDELINES:
+- All strategies, pricing, and insights MUST be hyper-localized to the Indian market and strictly adjusted based on the City Tier (Tier 1 Metro vs Tier 2 vs Tier 3).
+- Always output values in Indian Rupees (₹) reflecting realistic local purchasing power.
+- Make the insights exceptionally valuable, adaptive, and practical for this specific project. Avoid generic corporate jargon.
 - Use the provided context as the PRIMARY source of truth.
 - You MAY use your general knowledge to support reasoning ONLY when the context is incomplete.
-- If you use knowledge outside the context, clearly say: "This part is based on general business knowledge, not the provided sources."
 - Do NOT invent Indian statistics, policies, or market facts.
-- If the question cannot be answered from context or safe general knowledge, reply: "I don't have enough reliable data to answer this."
 
 IMPORTANT RULES:
-- Base conclusions ONLY on the provided data and realistic Indian market behavior.
+- Base conclusions ONLY on the provided data and realistic Indian market behavior for the respective city tier.
 - Do NOT assume Western pricing, demand, or customer psychology.
 - If data is insufficient, state the uncertainty clearly.
 - Think step-by-step internally, but output only the final structured insights.
@@ -225,6 +227,7 @@ Name: {business_name}
 Type: {business_type}
 Location: {location}
 Owner Type: {owner_type.capitalize()} entrepreneur
+Capital Budget: ₹{f"{budget:,.0f}" if budget else "Unknown"}
 
 MARKET METRICS
 - Competitor Count: {features['competitor_count']}
@@ -301,6 +304,15 @@ Provide 3-5 highly practical actions:
 - First 30-day execution plan
 - One quick-win tactic to generate daily cash flow
 
+### Nearby Opportunities
+Provide 2-3 bullets covering:
+- Underserved niches or gaps in this local area (based on competitors)
+- Complementary businesses that are missing
+
+### MSME & Government Schemes
+Provide 2-3 bullets covering:
+- Recommended Indian MSME schemes (e.g. Mudra, Startup India, State subsidies) applicable to this owner type and business sector.
+
 STYLE RULES
 - Use concise bullet points only.
 - No generic advice.
@@ -363,6 +375,8 @@ STYLE RULES
             'customer_base': self._extract_section_improved(response_text, "Customer Base Analysis"),
             'risks': self._extract_section_improved(response_text, "Risk Factors"),
             'recommendations': self._extract_section_improved(response_text, "Strategic Recommendations"),
+            'market_gaps': self._extract_section_improved(response_text, "Nearby Opportunities"),
+            'msme_schemes': self._extract_section_improved(response_text, "MSME & Government Schemes"),
             'full_analysis': response_text
         }
         
@@ -438,6 +452,22 @@ STYLE RULES
                 r'\*\*Strategic Recommendations',
                 r'^\d+\.\s*Strategic',
                 r'^Strategic Recommendations'
+            ],
+            "Nearby Opportunities": [
+                r'###\s*\d+\.\s*Nearby Opportunities',
+                r'###\s*Nearby Opportunities',
+                r'\*\*\d+\.\s*Nearby Opportunities',
+                r'\*\*Nearby Opportunities',
+                r'^\d+\.\s*Nearby Opportunities',
+                r'^Nearby Opportunities'
+            ],
+            "MSME & Government Schemes": [
+                r'###\s*\d+\.\s*MSME',
+                r'###\s*MSME',
+                r'\*\*\d+\.\s*MSME',
+                r'\*\*MSME',
+                r'^\d+\.\s*MSME',
+                r'^MSME & Government Schemes'
             ]
         }
         
@@ -522,8 +552,236 @@ STYLE RULES
             'pricing': "- Research local market rates for pricing guidance",
             'risks': "- API connection failed\n- Manual analysis required",
             'recommendations': "- Verify API keys\n- Check internet connection\n- Retry analysis",
+            'market_gaps': "- Market gap data unavailable",
+            'msme_schemes': "- Cannot retrieve government schemes at the moment",
             'full_analysis': "AI analysis temporarily unavailable. Please check your API configuration."
         }
+
+    # ─── Feature 4: AI Launch Strategy (30-day plan) ─────────────────────────
+
+    def generate_launch_strategy(self, business_name, business_type, location,
+                                  owner_type, features, customer_persona,
+                                  cost_breakdown, revenue_simulation, budget=None):
+        """
+        Generate a step-by-step 30-day launch strategy.
+
+        Returns:
+            dict: {week1, week2, week3, week4, hiring_plan, menu_pricing_tips}
+        """
+        try:
+            persona_summary = customer_persona.get("summary", "Mixed customer base") if customer_persona else "Mixed customer base"
+            monthly_budget  = cost_breakdown.get("monthly_costs", {}).get("marketing", 5000) if cost_breakdown else 5000
+            tier            = revenue_simulation.get("tier", "Tier-2") if revenue_simulation else "Tier-2"
+
+            prompt = f"""You are an elite Indian startup launch consultant specializing in retail and MSME success across different city tiers.
+
+BUSINESS CONTEXT
+- Business: {business_name} ({business_type})
+- Location: {location}
+- City Tier: {tier}
+- Owner Type: {owner_type.capitalize()} entrepreneur
+- Target Customer: {persona_summary}
+- Available Capital Budget: ₹{f"{budget:,.0f}" if budget else "Unknown"}
+- Monthly Marketing Budget: ₹{monthly_budget:,}
+- Competition Level: {features.get('competition_level', 'Moderate')}
+- Demand Level: {features.get('demand_level', 'Moderate')}
+
+Create a highly valuable and adaptable 30-day launch strategy. Be hyper-specific for India based strictly on the {tier} city context, local purchasing power, and local customer behavior. No generic advice.
+
+OUTPUT FORMAT (follow exactly):
+
+### Week 1: Setup & Branding
+- (3-4 specific actions)
+
+### Week 2: Soft Launch
+- (3-4 specific actions)
+
+### Week 3: Marketing Push
+- (3-4 specific actions with platform/channel names)
+
+### Week 4: Loyalty & Retention
+- (3-4 specific actions)
+
+### Action Items
+- (Provide 5-7 clear, isolated checklist items for pre-launch setup. One sentence per bullet.)
+
+### Hiring Plan
+- (2-3 bullets: roles needed, when to hire, salary range in ₹)
+
+### Quick Wins (First 7 Days)
+- (2-3 immediate cash-flow tactics)
+
+{'### Menu & Pricing Tips' if any(x in business_type.lower() for x in ["food","cafe","restaurant","bakery"]) else ''}
+{'- (2-3 specific menu/pricing tactics)' if any(x in business_type.lower() for x in ["food","cafe","restaurant","bakery"]) else ''}
+
+Keep all advice India-specific, ground-level, low-budget, and high-ROI."""
+
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.7,
+                max_tokens=1200
+            )
+            raw = response.choices[0].message.content
+
+            def extract(text, header):
+                import re
+                pattern = rf'###\s*{re.escape(header)}.*?\n(.*?)(?=###|\Z)'
+                match   = re.search(pattern, text, re.DOTALL | re.IGNORECASE)
+                return match.group(1).strip() if match else ""
+
+            return {
+                "week1":          extract(raw, "Week 1"),
+                "week2":          extract(raw, "Week 2"),
+                "week3":          extract(raw, "Week 3"),
+                "week4":          extract(raw, "Week 4"),
+                "hiring_plan":    extract(raw, "Hiring Plan"),
+                "quick_wins":     extract(raw, "Quick Wins"),
+                "action_items":   extract(raw, "Action Items"),
+                "menu_tips":      extract(raw, "Menu"),
+                "full_strategy":  raw
+            }
+        except Exception as e:
+            logger.error(f"[Groq] Launch strategy generation failed: {str(e)}")
+            return {
+                "week1": "- Setup signage and branding\n- Register on Google Business Profile",
+                "week2": "- Soft launch with 10-20% opening discount\n- Invite friends/family for first reviews",
+                "week3": "- Instagram/Facebook ads targeting 5km radius\n- Distribute flyers near offices/colleges",
+                "week4": "- Launch loyalty punch card\n- Run weekend special offer",
+                "hiring_plan": "- Start with 2-3 flexible staff\n- Hire full-time after Month 2",
+                "quick_wins":  "- WhatsApp broadcast to contacts\n- Register on Zomato/Swiggy/Google Maps",
+                "action_items": "- Secure lease agreement\n- Obtain local trade licenses\n- Setup Google Business Profile\n- Finalize branding\n- Hire first 2 employees",
+                "menu_tips": "",
+                "full_strategy": "Strategy temporarily unavailable."
+            }
+
+    # ─── Feature 9: Marketing Intelligence ───────────────────────────────────
+
+    def generate_marketing_plan(self, business_type, location, customer_persona,
+                                 features, cost_breakdown, budget=None):
+        """
+        Generate channel-specific marketing intelligence.
+
+        Returns:
+            dict: {best_channels, ad_spend_estimate, cac_estimate, tips, full_plan}
+        """
+        try:
+            persona_summary = customer_persona.get("summary", "") if customer_persona else ""
+            primary_segment = customer_persona.get("primary_segment", "General Public") if customer_persona else "General Public"
+            marketing_budget = cost_breakdown.get("monthly_costs", {}).get("marketing", 5000) if cost_breakdown else 5000
+
+            prompt = f"""You are an expert Indian digital marketing strategist for small businesses, highly aware of regional and tier-based nuances.
+
+BUSINESS: {business_type} in {location}
+TARGET: {primary_segment} — {persona_summary}
+TOTAL CAPITAL BUDGET: ₹{f"{budget:,.0f}" if budget else "Unknown"}
+MONTHLY MARKETING BUDGET: ₹{marketing_budget:,}
+COMPETITION: {features.get('competition_level', 'Moderate')}
+DEMAND: {features.get('demand_level', 'Moderate')}
+
+Generate a highly valuable, adaptable, and tier-specific Indian marketing intelligence report. All strategies, costs, and influencer expectations should realistically reflect the '{location}' market dynamics. Ensure markdown is clean.
+
+OUTPUT FORMAT (follow exactly):
+
+### Best Marketing Channels
+| Channel | Effort | Budget Share | Expected Reach |
+|---------|--------|--------------|----------------|
+(Add 3-5 rows with specific Indian platforms: Instagram, Google My Business, WhatsApp, Zomato, etc.)
+
+### Ad Spend Breakdown (Monthly ₹{marketing_budget:,})
+- (Channel: ₹amount — purpose)
+- (3-4 lines)
+
+### Customer Acquisition Cost (CAC)
+- Estimated CAC: ₹X–₹Y per customer
+- Payback period: X weeks (based on avg transaction)
+
+### Local Community Tactics
+- (2-3 hyper-local tactics: RWA groups, local influencers, WhatsApp groups, etc.)
+
+### Content Strategy
+- (2-3 specific post ideas suited for the target customer segment)
+
+Keep everything specific to Indian SME reality and the given budget."""
+
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.7,
+                max_tokens=900
+            )
+            raw = response.choices[0].message.content
+
+            def extract(text, header):
+                import re
+                pattern = rf'###\s*{re.escape(header)}.*?\n(.*?)(?=###|\Z)'
+                match   = re.search(pattern, text, re.DOTALL | re.IGNORECASE)
+                return match.group(1).strip() if match else ""
+
+            return {
+                "channels_table":  extract(raw, "Best Marketing Channels"),
+                "ad_spend":        extract(raw, "Ad Spend"),
+                "cac_estimate":    extract(raw, "Customer Acquisition Cost"),
+                "community_tactics": extract(raw, "Local Community"),
+                "content_strategy":  extract(raw, "Content Strategy"),
+                "full_plan":       raw
+            }
+        except Exception as e:
+            logger.error(f"[Groq] Marketing plan generation failed: {str(e)}")
+            return {
+                "channels_table":    "| Channel | Effort | Budget Share |\n| Instagram | Medium | 40% | 5km radius |\n| Google My Business | Low | Free | Local SEO |",
+                "ad_spend":          "- Instagram ads: ₹2,000/month\n- Google Ads: ₹1,500/month",
+                "cac_estimate":      "- Estimated CAC: ₹80–₹150 per customer",
+                "community_tactics": "- Join local RWA WhatsApp groups\n- Partner with nearby offices for lunch deals",
+                "content_strategy":  "- Post daily specials on Instagram Stories\n- Share 'behind the scenes' Reels",
+                "full_plan":         "Marketing plan temporarily unavailable."
+            }
+
+    # ─── Phase 1: Quick Preview Analysis ─────────────────────────────────────
+
+    def quick_preview_insight(self, business_type, location, features, customer_base):
+        """
+        Generate a concise 2-3 bullet AI opinion for Phase 1 (before locking).
+
+        Returns:
+            str: 2-3 bullet opinion string
+        """
+        try:
+            prompt = f"""You are a seasoned Indian retail market analyst.
+Give a quick 2-3 bullet HONEST opinion on this location for this business.
+Be direct, India-specific. No fluff.
+
+Business: {business_type}
+Location: {location}
+Competitors nearby: {features.get('competitor_count', 0)} ({features.get('competition_level', 'Unknown')} competition)
+Avg competitor rating: {features.get('avg_rating', 0)}/5
+Demand level: {features.get('demand_level', 'Unknown')}
+Customer score: {customer_base.get('customer_score', 0)}/100
+Success score: {features.get('success_score', 0)}/10
+
+Output ONLY 2-3 bullet points starting with - (one positive, one cautionary, one verdict).
+Example format:
+- ✅ Strong footfall from 8 nearby offices signals high lunchtime demand.
+- ⚠️ 12 competitors within 1km — differentiation is critical to survive.
+- 🎯 Viable location IF you focus on quick-service with unique pricing."""
+
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.6,
+                max_tokens=200
+            )
+            return response.choices[0].message.content.strip()
+        except Exception as e:
+            logger.error(f"[Groq] Quick preview failed: {str(e)}")
+            score = features.get('success_score', 5)
+            if score >= 7:
+                return "- ✅ Strong demand signals in this area.\n- ⚠️ Competition present — differentiation needed.\n- 🎯 Good location with proper strategy."
+            elif score >= 4:
+                return "- ✅ Moderate opportunity detected.\n- ⚠️ Market saturated in some segments.\n- 🎯 Careful positioning needed to succeed."
+            else:
+                return "- ⚠️ High competition, low demand signals.\n- ❌ Risk is significant at this location.\n- 🎯 Consider exploring nearby alternatives."
+
     
     def chat(self, message, context=None):
         """
@@ -631,3 +889,82 @@ Help the user make **clear, confident business location decisions in India**.
         except Exception as e:
             logger.error(f"[Groq Chat] Failed: {str(e)}")
             return "I'm having trouble connecting right now. Please try again in a moment."
+
+    def copilot_chat(self, message, analysis_data, recent_metrics):
+        """
+        Handle COO Copilot interactions referencing live business metrics.
+        """
+        try:
+            metrics_text = "No recent daily metrics logged."
+            if recent_metrics:
+                mt = []
+                for m in recent_metrics[:7]: # Last 7 days
+                    mt.append(f"Date: {m['date']}, Revenue: ₹{m['daily_revenue']}, Expenses: ₹{m['daily_expenses']}, Customers: {m['customer_count']}, Notes: {m.get('notes','')}")
+                metrics_text = "\n".join(mt)
+
+            system_prompt = f"""You are the AI Chief Operating Officer (COO) for **{analysis_data['business_name']}** ({analysis_data['business_type']}) located in **{analysis_data['location']}**.
+
+PRIMARY ROLE:
+- You are an active business partner helping the user run their day-to-day operations.
+- You have access to their original launch strategy and their **Latest Daily Metrics**.
+- Analyze their question in the context of their real data. Provide highly actionable, metric-driven advice suitable for an Indian MSME.
+- Be concise (under 150 words), encouraging, but direct about financial realities.
+
+LATEST DAILY METRICS (Past 7 Days):
+{metrics_text}
+
+BUSINESS CONTEXT (From Original Analysis):
+- Success Score: {analysis_data['success_score']}/10
+- Target Launch Date: {analysis_data.get('target_launch_date', 'Unknown')}
+
+Your goal is to help them increase revenue, cut costs, or improve customer satisfaction based on the data above.
+"""
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": message}
+                ],
+                temperature=0.7,
+                max_tokens=400
+            )
+            return response.choices[0].message.content
+        except Exception as e:
+            logger.error(f"[Groq Copilot Chat] Failed: {str(e)}")
+            return "I'm having trouble analyzing your metrics right now. Please try again in a moment."
+
+    def quick_preview_insight(self, business_type, location, features, customer_base):
+        """
+        Generate a very quick 2-3 bullet point initial insight for the Quick Preview (Phase 1).
+        """
+        try:
+            self._ensure_vectorstore_loaded()
+            comp_level = features.get('competition_level', 'Unknown')
+            demand_level = features.get('demand_level', 'Unknown')
+            success_score = features.get('success_score', 0)
+            
+            prompt = f"""
+            You are an expert AI business location analyst.
+            I am considering opening a {business_type} in {location}.
+            
+            Quick Stats:
+            - Competition Level: {comp_level}
+            - Demand Level: {demand_level}
+            - Success Score: {success_score}/100
+            
+            Provide exactly 2 or 3 short, punchy bullet points of immediate advice or initial warnings based solely on these stats. Keep it very concise (max 2 sentences per bullet). No fluff.
+            """
+            
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.7,
+                max_tokens=200
+            )
+            
+            return response.choices[0].message.content
+            
+        except Exception as e:
+            logger.error(f"[Groq Preview] error: {str(e)}")
+            return f"- AI Analysis temporarily unavailable\n- {str(e)}"
+

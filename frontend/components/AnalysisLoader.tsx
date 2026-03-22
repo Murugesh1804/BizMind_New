@@ -14,7 +14,7 @@ const STEPS = [
     { label: "Finalizing success probability...", detail: "Calculating final scores and preparing your report" }
 ];
 
-export default function AnalysisLoader({ businessName }: { businessName?: string }) {
+export default function AnalysisLoader({ businessName, taskId }: { businessName?: string, taskId?: string }) {
     const [progress, setProgress] = useState(0);
     const [seconds, setSeconds] = useState(0);
     const [currentStepInfo, setCurrentStepInfo] = useState({ step: 0, status: STEPS[0].label });
@@ -33,7 +33,7 @@ export default function AnalysisLoader({ businessName }: { businessName?: string
 
         const pollProgress = async () => {
             try {
-                const data = await getAnalysisProgress(); // Returns { step: X, status: "...", progress: Y }
+                const data = await getAnalysisProgress(taskId); // Returns { step: X, status: "...", progress: Y }
 
                 if (!isMounted) return;
 

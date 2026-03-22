@@ -13,6 +13,19 @@ export interface CompetitorData {
     phone?: string;
 }
 
+export interface PreviewResult {
+    preview: boolean;
+    competitor_count: number;
+    competition_level: string;
+    avg_rating: number;
+    demand_level: string;
+    success_score: number;
+    customer_score: number;
+    heatmap_data: Array<{ lat: number; lng: number }>;
+    ai_opinion: string;
+    top_competitors: Array<{ name: string; rating: string | number; distance?: string | number }>;
+}
+
 export interface FeatureData {
     competitor_count: number;
     avg_rating: number;
@@ -35,6 +48,8 @@ export interface AiInsights {
     customer_base?: string;
     risks?: string;
     recommendations?: string;
+    market_gaps?: string;
+    msme_schemes?: string;
     full_analysis?: string;
 }
 
@@ -52,8 +67,46 @@ export interface HeatmapPoint {
     lng: number;
 }
 
+export interface MarketingIntel {
+    channels_table?: string;
+    ad_spend?: string;
+    cac_estimate?: string;
+    community_tactics?: string;
+    content_strategy?: string;
+    full_plan?: string;
+    influencers?: Array<{ handle: string; platform: string; url: string; contact: string }>;
+}
+
+export interface GovScheme {
+    name: string;
+    description: string;
+    url: string;
+    state?: string;
+    category?: string;
+}
+
+export interface RevenueSimulation {
+    tier: string;
+    monthly_revenue: { low: number; mid: number; high: number };
+    monthly_costs: Record<string, number>;
+    monthly_profit: { low: number; mid: number; high: number };
+    break_even_months: number | null;
+    roi_pct: number;
+    twelve_month_projection: Array<{ month: number; revenue: number; costs: number; profit: number }>;
+    daily_footfall: number;
+    avg_ticket: number;
+    initial_investment: number;
+}
+
+export interface CostBreakdown {
+    tier: string;
+    one_time_costs: Record<string, number>;
+    monthly_costs: Record<string, number>;
+}
+
 export interface AnalysisResult extends CustomerBaseData {
-    // Core identification
+    // Core identification  
+    id: number;          // The DB primary key - used for API calls
     analysis_id?: number;
     user_id?: number;
 
@@ -63,6 +116,7 @@ export interface AnalysisResult extends CustomerBaseData {
     location: string;
     radius: number;
     owner_type: 'new' | 'existing';
+    budget?: number;
 
     // Geolocation
     latitude?: string | number;
@@ -89,6 +143,16 @@ export interface AnalysisResult extends CustomerBaseData {
     risk_assessment?: string;
     strategic_recommendations?: string;
     market_analysis?: string;
+
+    // New Feature Data
+    customer_persona?: Record<string, any>;
+    cost_breakdown?: CostBreakdown;
+    revenue_simulation?: RevenueSimulation;
+    launch_strategy?: Record<string, string>;
+    marketing_intel?: MarketingIntel;
+    gov_schemes_list?: GovScheme[];
+    target_launch_date?: string;
+    action_items_json?: string;
 
     // Timestamps
     created_at?: string;

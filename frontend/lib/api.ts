@@ -16,8 +16,16 @@ export const getMe = () =>
 export const analyze = (formData: FormData) =>
     api.post('/api/analyze', formData).then((r) => r.data);
 
-export const getAnalysisProgress = () =>
-    api.get('/api/analyze/progress').then((r) => r.data);
+export const preview = (data: any) =>
+    api.post('/api/preview', data).then((r) => r.data);
+
+export const getAnalysisProgress = (taskId?: string) =>
+    api.get('/api/analyze/progress', { params: { task_id: taskId } }).then((r) => r.data);
+
+// ─── Launch Date ──────────────────────────────────────────────────────────────
+
+export const setLaunchDate = (analysisId: number, targetLaunchDate: string) =>
+    api.post(`/api/analyze/${analysisId}/launch-date`, { target_launch_date: targetLaunchDate }).then((r) => r.data);
 
 // ─── History ──────────────────────────────────────────────────────────────────
 
@@ -45,7 +53,29 @@ export const downloadJSON = async (id: number, businessName: string) => {
     window.URL.revokeObjectURL(url);
 };
 
+// ─── Business Health ──────────────────────────────────────────────────────────
+
+export const submitBusinessMetric = (data: {
+    analysis_id: number;
+    date: string;
+    daily_revenue: number;
+    daily_expenses: number;
+    customer_count: number;
+    notes?: string;
+}) => api.post('/api/business/metrics', data).then((r) => r.data);
+
+export const getBusinessMetrics = (analysisId: number, days = 30) =>
+    api.get(`/api/business/metrics/${analysisId}`, { params: { days } }).then((r) => r.data);
+
+// ─── A/B Compare ──────────────────────────────────────────────────────────────
+
+export const compareLocations = (analysisIdA: number, analysisIdB: number) =>
+    api.post('/api/compare/locations', { analysis_id_a: analysisIdA, analysis_id_b: analysisIdB }).then((r) => r.data);
+
 // ─── Chat ─────────────────────────────────────────────────────────────────────
 
 export const chat = (message: string) =>
     api.post('/api/chat', { message }).then((r) => r.data);
+
+export const copilotChat = (analysisId: number, message: string) =>
+    api.post('/api/chat/copilot', { analysis_id: analysisId, message }).then((r) => r.data);

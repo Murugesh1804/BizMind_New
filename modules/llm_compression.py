@@ -84,9 +84,9 @@ class LLMLinguaCompressor:
             print(f"[LLMLingua] Compressing {len(text)} characters...")
             
             # Split text into chunks to avoid exceeding model's max sequence length (512 tokens)
-            # We use ~400 tokens per chunk to be safe
+            # We use ~250 words per chunk to be safe (roughly 350-400 tokens)
             words = text.split()
-            chunk_size = 400  # Conservative limit to stay under 512 tokens
+            chunk_size = 250  # safer limit for 512 token models
             chunks = []
             
             for i in range(0, len(words), chunk_size):

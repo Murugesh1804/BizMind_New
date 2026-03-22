@@ -61,6 +61,7 @@ class Database:
                     longitude REAL,
                     radius INTEGER,
                     owner_type TEXT,
+                    budget REAL,
                     success_score REAL,
                     recommendation TEXT,
                     features_json TEXT,
@@ -68,19 +69,88 @@ class Database:
                     competitors_json TEXT,
                     strategy_json TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    target_launch_date TEXT,
+                    action_items_json TEXT,
                     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
                 )
             ''')
             
+            # Safely add new columns to existing DB
+            try:
+                cursor.execute("ALTER TABLE analyses ADD COLUMN target_launch_date TEXT")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                cursor.execute("ALTER TABLE analyses ADD COLUMN action_items_json TEXT")
+            except sqlite3.OperationalError:
+                pass
+            
             # Create analysis_progress table for real-time tracking across workers
+            # Recreated to use task_id as primary key to allow concurrent analyses
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS analysis_progress (
-                    user_id INTEGER PRIMARY KEY,
+                    task_id TEXT PRIMARY KEY,
+                    user_id INTEGER,
                     step INTEGER DEFAULT 0,
                     status TEXT,
                     progress INTEGER DEFAULT 0,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                )
+            ''')
+
+            # ─── Feature 6: Business Health Dashboard ───────────────────────
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS business_metrics (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    analysis_id INTEGER NOT NULL,
+                    user_id INTEGER NOT NULL,
+                    date TEXT NOT NULL,
+                    daily_revenue REAL DEFAULT 0,
+                    daily_expenses REAL DEFAULT 0,
+                    customer_count INTEGER DEFAULT 0,
+                    notes TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (analysis_id) REFERENCES analyses(id) ON DELETE CASCADE,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                )
+            ''')
+
+            cursor.execute('''
+                CREATE INDEX IF NOT EXISTS idx_business_metrics_analysis
+                ON business_metrics(analysis_id)
+            ''')
+
+            # ─── Feature 5: Market Tracking Snapshots ───────────────────────
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS market_snapshots (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    analysis_id INTEGER NOT NULL,
+                    snapshot_json TEXT,
+                    alerts_json TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (analysis_id) REFERENCES analyses(id) ON DELETE CASCADE
+                )
+            ''')
+
+            cursor.execute('''
+                CREATE INDEX IF NOT EXISTS idx_market_snapshots_analysis
+                ON market_snapshots(analysis_id)
+            ''')
+
+            # ─── Feature 10: Feedback Learning Loop ─────────────────────────
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS feedback (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    analysis_id INTEGER,
+                    success_status TEXT,
+                    actual_monthly_revenue REAL,
+                    issues TEXT,
+                    additional_notes TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                    FOREIGN KEY (analysis_id) REFERENCES analyses(id) ON DELETE SET NULL
                 )
             ''')
             
@@ -143,7 +213,7 @@ class Database:
     
     def create_analysis(self, user_id, business_name, business_type, location,
                        latitude=None, longitude=None, radius=None, owner_type=None,
-                       success_score=None, recommendation=None, features=None,
+                       budget=None, success_score=None, recommendation=None, features=None,
                        ai_insights=None, competitors=None, strategy=None):
         """Save an analysis to the database"""
         with self.get_connection() as conn:
@@ -151,18 +221,19 @@ class Database:
             cursor.execute('''
                 INSERT INTO analyses (
                     user_id, business_name, business_type, location,
-                    latitude, longitude, radius, owner_type,
+                    latitude, longitude, radius, owner_type, budget,
                     success_score, recommendation, features_json,
-                    ai_insights_json, competitors_json, strategy_json
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ai_insights_json, competitors_json, strategy_json, action_items_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 user_id, business_name, business_type, location,
-                latitude, longitude, radius, owner_type,
+                latitude, longitude, radius, owner_type, budget,
                 success_score, recommendation,
                 json.dumps(features) if features else None,
                 json.dumps(ai_insights) if ai_insights else None,
                 json.dumps(competitors) if competitors else None,
-                json.dumps(strategy) if strategy else None
+                json.dumps(strategy) if strategy else None,
+                json.dumps(strategy.get("action_items", "")) if strategy else None
             ))
             return cursor.lastrowid
     
@@ -228,34 +299,158 @@ class Database:
             row = cursor.fetchone()
             return row['count'] if row else 0
 
-    def set_analysis_progress(self, user_id, step, status, progress):
-        """Update or create analysis progress for a user"""
+    def set_analysis_progress(self, task_id, user_id, step, status, progress):
+        """Update or create analysis progress for a task"""
+        if not task_id: return
         with self.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute('''
-                INSERT INTO analysis_progress (user_id, step, status, progress, updated_at)
-                VALUES (?, ?, ?, ?, ?)
-                ON CONFLICT(user_id) DO UPDATE SET
+                INSERT INTO analysis_progress (task_id, user_id, step, status, progress, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(task_id) DO UPDATE SET
                     step = excluded.step,
                     status = excluded.status,
                     progress = excluded.progress,
                     updated_at = excluded.updated_at
-            ''', (user_id, step, status, progress, datetime.now()))
+            ''', (task_id, user_id, step, status, progress, datetime.now()))
 
-    def get_analysis_progress(self, user_id):
-        """Get current progress for a user"""
+    def get_analysis_progress(self, task_id):
+        """Get current progress for a task"""
+        if not task_id: return None
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute('SELECT * FROM analysis_progress WHERE user_id = ?', (user_id,))
+            cursor.execute('SELECT * FROM analysis_progress WHERE task_id = ?', (task_id,))
             row = cursor.fetchone()
             return dict(row) if row else None
 
-    def clear_analysis_progress(self, user_id):
-        """Remove progress entry for a user"""
+    def clear_analysis_progress(self, task_id):
+        """Remove progress entry for a task"""
+        if not task_id: return
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute('DELETE FROM analysis_progress WHERE user_id = ?', (user_id,))
+            cursor.execute('DELETE FROM analysis_progress WHERE task_id = ?', (task_id,))
+
+    # =========================================================================
+    # BUSINESS HEALTH DASHBOARD (Feature 6)
+    # =========================================================================
+
+    def add_business_metric(self, analysis_id, user_id, date, daily_revenue,
+                            daily_expenses, customer_count, notes=None):
+        """Log a day's business performance"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO business_metrics
+                    (analysis_id, user_id, date, daily_revenue, daily_expenses,
+                     customer_count, notes)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (analysis_id, user_id, date, daily_revenue, daily_expenses,
+                  customer_count, notes))
+            return cursor.lastrowid
+
+    def get_business_metrics(self, analysis_id, user_id, days=30):
+        """Get recent business metrics for an analysis"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT * FROM business_metrics
+                WHERE analysis_id = ? AND user_id = ?
+                ORDER BY date DESC
+                LIMIT ?
+            ''', (analysis_id, user_id, days))
+            rows = cursor.fetchall()
+            return [dict(r) for r in rows]
+
+    # =========================================================================
+    # MARKET TRACKING (Feature 5)
+    # =========================================================================
+
+    def save_market_snapshot(self, analysis_id, snapshot_json, alerts_json):
+        """Save a new market snapshot"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO market_snapshots (analysis_id, snapshot_json, alerts_json)
+                VALUES (?, ?, ?)
+            ''', (analysis_id, snapshot_json, alerts_json))
+            return cursor.lastrowid
+
+    def get_latest_snapshot(self, analysis_id):
+        """Get the most recent market snapshot for an analysis"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT * FROM market_snapshots
+                WHERE analysis_id = ?
+                ORDER BY created_at DESC
+                LIMIT 1
+            ''', (analysis_id,))
+            row = cursor.fetchone()
+            return dict(row) if row else None
+
+    def get_snapshot_history(self, analysis_id, limit=10):
+        """Get list of past snapshots"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT id, created_at, alerts_json FROM market_snapshots
+                WHERE analysis_id = ?
+                ORDER BY created_at DESC
+                LIMIT ?
+            ''', (analysis_id, limit))
+            rows = cursor.fetchall()
+            return [dict(r) for r in rows]
+
+    # =========================================================================
+    # FEEDBACK LEARNING LOOP (Feature 10)
+    # =========================================================================
+
+    def save_feedback(self, user_id, analysis_id, success_status,
+                      actual_revenue=None, issues=None, notes=None):
+        """Save user feedback on a past analysis"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO feedback
+                    (user_id, analysis_id, success_status,
+                     actual_monthly_revenue, issues, additional_notes)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (user_id, analysis_id, success_status,
+                  actual_revenue, issues, notes))
+            return cursor.lastrowid
+
+    def get_user_feedback(self, user_id):
+        """Get all feedback submitted by a user"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT f.*, a.business_name, a.business_type, a.location,
+                       a.success_score
+                FROM feedback f
+                LEFT JOIN analyses a ON f.analysis_id = a.id
+                WHERE f.user_id = ?
+                ORDER BY f.created_at DESC
+            ''', (user_id,))
+            rows = cursor.fetchall()
+            return [dict(r) for r in rows]
+
+    def get_feedback_stats(self):
+        """Aggregate feedback stats (for accuracy tracking)"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT
+                    COUNT(*) as total,
+                    SUM(CASE WHEN success_status='succeeded' THEN 1 ELSE 0 END) as succeeded,
+                    SUM(CASE WHEN success_status='failed'    THEN 1 ELSE 0 END) as failed,
+                    SUM(CASE WHEN success_status='ongoing'   THEN 1 ELSE 0 END) as ongoing,
+                    AVG(actual_monthly_revenue) as avg_actual_revenue
+                FROM feedback
+            ''')
+            row = cursor.fetchone()
+            return dict(row) if row else {}
 
 
 # Global database instance
 db = Database()
+

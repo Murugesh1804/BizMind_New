@@ -16,6 +16,9 @@
 - ⚡ **Performance Optimized**: Parallel API calls and data compression
 
 ### **Latest Updates (2026)**
+- ✅ Migrated frontend to Next.js (App Router) with React, TypeScript, and Tailwind CSS
+- ✅ Enhanced Dashboard with dedicated modular sections (Insights, Market, Marketing, Revenue, Strategy, Report)
+- ✅ Integrated Live Market Tracker and Business Health monitoring tools
 - ✅ User authentication and authorization system (JWT + bcrypt)
 - ✅ Complete database persistence with SQLite
 - ✅ Analysis history dashboard with search and filter
@@ -148,7 +151,7 @@
 - Smooth animations and transitions
 
 #### **Technology Stack**:
-- **Frontend**: HTML5, Tailwind CSS, JavaScript
+- **Frontend**: Next.js (App Router), React, TypeScript, Tailwind CSS
 - **Fonts**: Google Fonts (Manrope)
 - **Icons**: Material Symbols
 - **Map**: Leaflet.js + OpenStreetMap
@@ -281,9 +284,9 @@ Response Formatting
 Dashboard Display (with Charts & Maps)
 ```
 
-### **Templates (HTML/Jinja2)**
+### **Frontend Structure (Next.js App Router)**
 
-#### **1. index.html** - Landing Page
+#### **1. app/page.tsx** - Landing Page
 - Interactive Leaflet map with click-to-select location
 - 4-step vertical stepper workflow
 - Business type and name input fields
@@ -294,45 +297,30 @@ Dashboard Display (with Charts & Maps)
 - Responsive design with mobile menu
 - Dark mode support
 
-#### **2. register.html** - User Registration
-- Email validation with RFC compliance
-- Password strength requirements (8+ chars)
-- Full name input
+#### **2. app/register & app/login** - User Authentication
+- Email validation & dynamic layout flows
+- Secure password processing setup
 - Real-time validation feedback
-- Secure password hashing (bcrypt)
-- Redirect to login after success
+- Smooth client-side navigation
 
-#### **3. login.html** - User Login
-- Email and password authentication
-- JWT token generation
-- Error handling with user-friendly messages
-- Redirect to dashboard after login
+#### **3. app/dashboard** - Comprehensive Analysis Dashboard
+- **Main Dashboard**: Success score gauge, high-level metrics, and Top 3 competitor maps.
+- **app/dashboard/insights**: Detailed AI-generated business insights.
+- **app/dashboard/market**: Market saturation, competitor analysis, and demographic heatmaps.
+- **app/dashboard/revenue**: Revenue & cost analysis, pricing strategy.
+- **app/dashboard/marketing**: Buyer persona, messaging, and acquisition strategies.
+- **app/dashboard/strategy**: Long-term roadmaps, risk factors, and expansion models.
+- **app/dashboard/report**: Complete analysis recap and PDF/JSON export functionalites.
 
-#### **4. dashboard.html** - Analysis Results
-- Success score doughnut chart (Chart.js)
-- 5 key metric cards with mini charts
-- Strategic insights grid (6 sections)
-- Customer base heatmap (Google Maps)
-- Top 3 competitor cards
-- Download PDF/JSON buttons
-- Mobile-responsive layout
-
-#### **5. history.html** - Analysis History
-- Paginated analysis list (20 per page)
-- Search and filter functionality
+#### **4. app/history** - Analysis History
+- Paginated analysis list visualization
+- Search and filter functionality UI
 - Quick preview cards with key metrics
 - View, download, and delete actions
-- JWT-protected access
 
-#### **6. loading.html** - Loading Animation
-- Professional loading spinner
-- Progress messages
-- Smooth animations
-
-#### **7. download_pdf.html** - PDF Export Template
-- Print-optimized layout
-- Complete analysis report
-- Professional formatting
+#### **5. app/business-health & app/market-tracker** - Continuous Monitoring
+- **Business Health**: Periodic check-ins and performance scoring (in development).
+- **Live Market Tracker**: Real-time competitor alerts and local demand pattern shifts (in development).
 
 ---
 
@@ -653,7 +641,7 @@ gunicorn app:app \
 
 ### **Technologies Mastered**
 - **Backend**: Python (Flask, SQLite, bcrypt, JWT, concurrent.futures)
-- **Frontend**: JavaScript (ES6+, Chart.js, Leaflet.js), HTML5, Tailwind CSS
+- **Frontend**: Next.js, React, TypeScript, Tailwind CSS, Chart.js, Leaflet.js
 - **APIs**: REST API design, SerpAPI, Groq API, Google Maps/Places API
 - **AI/ML**: LLM integration, prompt engineering, LLMLingua, ChromaDB (RAG)
 - **Database**: SQLite, SQL queries, indexing, transactions
@@ -1017,9 +1005,9 @@ For each competitor, we now collect:
 
 ### **Technical Achievements**
 - ✅ 10+ engineering concepts demonstrated (API integration, AI/ML, geospatial analysis, etc.)
-- ✅ 20+ technologies mastered (Python, Flask, JWT, bcrypt, Chart.js, Leaflet.js, etc.)
+- ✅ 20+ technologies mastered (Next.js, React, Python, Flask, JWT, bcrypt, Chart.js, Tailwind, etc.)
 - ✅ 17 API endpoints with comprehensive authentication
-- ✅ 7 complete HTML templates with responsive design
+- ✅ Complete Next.js App Router architecture with responsive React components
 - ✅ 6 core modules with clean separation of concerns
 - ✅ SQLite database with proper indexing and foreign keys
 - ✅ Parallel processing with ThreadPoolExecutor (4 workers)

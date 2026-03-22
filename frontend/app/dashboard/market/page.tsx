@@ -3,7 +3,6 @@ import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Bar } from 'react-chartjs-2';
 import { Chart as ChartJS, BarElement, CategoryScale, LinearScale, Tooltip, Legend } from 'chart.js';
-import DashboardNav from '@/components/DashboardNav';
 import { DashboardErrorBoundary } from '@/components/ErrorBoundary';
 import { useAnalysisData } from '@/lib/hooks';
 import type { AnalysisResult, FeatureData, CompetitorData } from '@/lib/types';
@@ -68,11 +67,11 @@ export default function MarketPage() {
         };
         // Use the main gmaps-script (loaded on home with places+visualization)
         // or load our own with visualization if coming directly to market page
-        const existingScript = document.getElementById('gmaps-script') || document.getElementById('gmaps-script-dash');
+        const existingScript = document.getElementById('gmaps-script');
         if (!existingScript) {
             const script = document.createElement('script');
-            script.id = 'gmaps-script-dash';
-            script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=visualization`;
+            script.id = 'gmaps-script';
+            script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,visualization`;
             script.onload = initHeatmap;
             document.head.appendChild(script);
         } else if (window.google?.maps) { initHeatmap(); }
@@ -101,9 +100,8 @@ export default function MarketPage() {
 
     return (
         <DashboardErrorBoundary>
-            <div className="pt-16">
-                <DashboardNav />
-                <main className="pt-6 pb-20 px-4 md:px-6 max-w-5xl mx-auto space-y-8" style={{ fontFamily: 'Inter, sans-serif' }}>
+            <div>
+                <main className="pt-6 pb-20 px-4 md:px-6 max-w-6xl mx-auto space-y-8" style={{ fontFamily: 'Inter, sans-serif' }}>
 
                     {/* Page title */}
                     <div className="flex items-center justify-between">

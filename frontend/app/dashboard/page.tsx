@@ -3,7 +3,6 @@ import { useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Doughnut } from 'react-chartjs-2';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
-import DashboardNav from '@/components/DashboardNav';
 import { DashboardErrorBoundary } from '@/components/ErrorBoundary';
 import { useAnalysisData } from '@/lib/hooks';
 import type { AnalysisResult, FeatureData } from '@/lib/types';
@@ -95,8 +94,7 @@ export default function DashboardPage() {
 
     return (
         <DashboardErrorBoundary>
-            <div className="pt-16">
-                <DashboardNav />
+            <div>
                 <main className="pt-6 pb-20 px-4 md:px-6 max-w-5xl mx-auto space-y-8" style={{ fontFamily: 'Inter, sans-serif' }}>
 
                     {/* Header */}
