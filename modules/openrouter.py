@@ -195,16 +195,22 @@ class OpenRouterClient:
                      features, compressed_reviews, competitors, rag_context="", budget=None, customer_base=None):
         """
         Build structured prompt for LLM with optional RAG context
+        Truncates content to prevent 413 Payload Too Large errors
         """
         rag_section = ""
         if rag_context:
             rag_section = f"""
 SUPPLEMENTAL KNOWLEDGE BASE (Use only when provided data is incomplete)
-{rag_context}
+{rag_context[:500]}
 
 NOTE: The above is general domain knowledge. Use it ONLY to support reasoning when 
 the provided data below is insufficient. Always prioritize the actual data.
 """
+        # Truncate compressed reviews aggressively to save tokens
+        reviews_snippet = compressed_reviews[:500] if compressed_reviews else "No review data available"
+        
+        # Format competitors - only include name, rating, review count (exclude full review arrays)
+        competitors_formatted = self._format_competitors(competitors[:3])  # Reduced from 5 to 3
         
         prompt = f"""You are a top-tier Indian retail market strategist with 20+ years of experience
 in MSME success, street-level retail economics, and consumer behavior across various Indian city tiers.
@@ -255,10 +261,10 @@ CUSTOMER BASE CONTEXT:
 - Transit access = better footfall and accessibility
 
 CUSTOMER REVIEW SIGNALS
-{compressed_reviews[:1000]}
+{reviews_snippet}
 
 TOP LOCAL COMPETITORS
-{self._format_competitors(competitors[:5])}
+{competitors_formatted}
 
 ANALYSIS FRAMEWORK (Indian MSME Logic)
 
@@ -324,13 +330,26 @@ STYLE RULES
 - Focus on actionable Indian ground reality.
 """
 
+        # Log prompt size for debugging
+        prompt_size = len(prompt)
+        logger.info(f"[Groq] Prompt size: {prompt_size} characters")
+        
+        # Hard limit to prevent 413 errors (Groq limit ~6000 tokens ~24000 chars)
+        if prompt_size > 20000:
+            logger.warning(f"[Groq] Prompt too large ({prompt_size}), truncating...")
+            prompt = prompt[:20000] + "\n\n[Content truncated due to size limits]\n"
+        
         return prompt
     
     def _format_competitors(self, competitors):
-        """Format competitor list for prompt"""
+        """Format competitor list for prompt - limited fields to save tokens"""
         lines = []
         for i, comp in enumerate(competitors, 1):
-            lines.append(f"{i}. {comp['name']} - Rating: {comp['rating']}/5 ({comp['reviews_count']} reviews)")
+            # Only use basic fields, exclude reviews array to save tokens
+            name = comp.get('name', 'Unknown')
+            rating = comp.get('rating', 0)
+            review_count = comp.get('reviews_count', 0)
+            lines.append(f"{i}. {name} - Rating: {rating}/5 ({review_count} reviews)")
         return "\n".join(lines)
     
     def _call_api(self, prompt):

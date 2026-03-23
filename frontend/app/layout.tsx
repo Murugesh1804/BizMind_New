@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { AuthProvider } from '@/context/AuthContext';
-import Navbar from '@/components/Navbar';
+import { NavbarWrapper } from './NavbarWrapper';
 import BBot from '@/components/bBot';
 
 export const metadata: Metadata = {
@@ -44,7 +44,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="bg-background-light text-text-main min-h-screen antialiased">
         <AuthProvider>
-          <Navbar />
+          <NavbarWrapper />
           {children}
           <BBot />
         </AuthProvider>

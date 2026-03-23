@@ -15,8 +15,8 @@ export default function Navbar() {
 
                     {/* Logo */}
                     <div className="flex-1 flex justify-center md:justify-start">
-                        <Link href="/">
-                            <Image src="/favicon.ico" alt="BizMind" width={120} height={120} className="h-12 w-auto" />
+                        <Link href="/" className="focus:outline-none focus:ring-2 focus:ring-primary/30 rounded-lg p-1">
+                            <Image src="/favicon.ico" alt="BizMind" width={120} height={120} className="h-10 md:h-12 w-auto" />
                         </Link>
                     </div>
 
@@ -26,22 +26,22 @@ export default function Navbar() {
                             <div className="flex items-center gap-3">
                                 <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{user.full_name}</span>
                                 <div className="w-px h-4 bg-gray-300 dark:bg-gray-600" />
-                                <Link href="/history" className="text-sm font-semibold text-gray-700 dark:text-gray-300 hover:text-primary transition-colors">
+                                <Link href="/history" className="text-sm font-semibold text-gray-700 dark:text-gray-300 hover:text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary/30 rounded-lg px-2 py-1">
                                     My History
                                 </Link>
                                 <button
                                     onClick={logout}
-                                    className="bg-gray-100 dark:bg-gray-800 px-5 py-2 rounded-full text-sm font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all"
+                                    className="bg-gray-100 dark:bg-gray-800 px-5 py-2 rounded-full text-sm font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all focus:outline-none focus:ring-2 focus:ring-primary/30"
                                 >
                                     Logout
                                 </button>
                             </div>
                         ) : (
                             <div className="flex items-center gap-4">
-                                <Link href="/login" className="text-sm font-semibold text-gray-700 dark:text-gray-300 hover:text-primary transition-colors">
+                                <Link href="/login" className="text-sm font-semibold text-gray-700 dark:text-gray-300 hover:text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary/30 rounded-lg px-2 py-1">
                                     Login
                                 </Link>
-                                <Link href="/register" className="bg-primary text-white px-5 py-2 rounded-full text-sm font-bold hover:bg-primary-hover transition-all shadow-md">
+                                <Link href="/register" className="bg-primary text-white px-5 py-2 rounded-full text-sm font-bold hover:bg-primary-hover transition-all shadow-md focus:outline-none focus:ring-2 focus:ring-primary/30">
                                     Get Started
                                 </Link>
                             </div>
@@ -50,7 +50,7 @@ export default function Navbar() {
 
                     {/* Mobile toggle */}
                     <button
-                        className="md:hidden p-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
+                        className="md:hidden p-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30"
                         onClick={() => setMobileOpen(!mobileOpen)}
                         aria-label="Toggle menu"
                     >

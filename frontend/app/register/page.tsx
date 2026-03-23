@@ -37,12 +37,12 @@ export default function RegisterPage() {
     const inputClass = "w-full bg-gray-50 border-none rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary text-gray-900 placeholder:text-gray-400";
 
     return (
-        <main className="min-h-screen flex items-center justify-center px-6 pt-16 pb-10 bg-background-light">
+        <main className="min-h-screen flex items-center justify-center px-4 md:px-6 pt-20 md:pt-16 pb-10 bg-background-light">
             <div className="w-full max-w-md animate-fade-in">
-                <div className="bg-white rounded-xl shadow-2xl p-8 border border-gray-100">
-                    <div className="text-center mb-8">
-                        <h1 className="text-3xl font-extrabold text-gray-900 mb-2">Create Account</h1>
-                        <p className="text-gray-600">Start making smarter business decisions</p>
+                <div className="bg-white rounded-xl shadow-2xl p-6 md:p-8 border border-gray-100">
+                    <div className="text-center mb-6 md:mb-8">
+                        <h1 className="text-2xl md:text-3xl font-extrabold text-gray-900 mb-2">Create Account</h1>
+                        <p className="text-gray-600 text-sm md:text-base">Start making smarter business decisions</p>
                     </div>
 
                     {error && (
@@ -74,7 +74,7 @@ export default function RegisterPage() {
                                 className={inputClass} placeholder="••••••••" />
                         </div>
                         <button type="submit" disabled={loading}
-                            className="w-full bg-primary hover:bg-primary-hover text-white font-extrabold py-4 rounded-xl shadow-lg transition-all hover:-translate-y-0.5 flex items-center justify-center gap-2 disabled:opacity-70">
+                            className="w-full bg-primary hover:bg-primary-hover text-white font-extrabold py-3 md:py-4 rounded-xl shadow-lg transition-all hover:-translate-y-0.5 flex items-center justify-center gap-2 disabled:opacity-70 focus:outline-none focus:ring-4 focus:ring-primary/30">
                             <span>{loading ? 'Creating account...' : 'Create Account'}</span>
                             <span className="material-symbols-outlined">arrow_forward</span>
                         </button>

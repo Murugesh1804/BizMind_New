@@ -131,7 +131,7 @@ class GoogleMapsClient:
                     details = self.client.place(
                         place_id=place_id,
                         fields=['name', 'rating', 'user_ratings_total', 'formatted_address', 
-                               'geometry', 'price_level', 'review', 'types', 'website', 
+                               'geometry', 'price_level', 'review', 'type', 'website', 
                                'formatted_phone_number', 'opening_hours']
                     ).get('result', {})
                     

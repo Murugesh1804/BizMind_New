@@ -73,14 +73,14 @@ export default function HistoryPage() {
     };
 
     return (
-        <main className="pt-24 pb-20 px-4 md:px-6 max-w-7xl mx-auto">
-            <div className="flex items-center justify-between mb-8">
+        <main className="pt-20 md:pt-24 pb-20 px-4 md:px-6 max-w-7xl mx-auto">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
                 <div>
-                    <h1 className="text-3xl font-extrabold text-gray-900">Analysis History</h1>
-                    <p className="text-gray-500 mt-1">Your past business location analyses</p>
+                    <h1 className="text-2xl md:text-3xl font-extrabold text-gray-900">Analysis History</h1>
+                    <p className="text-gray-500 mt-1 text-sm md:text-base">Your past business location analyses</p>
                 </div>
                 <button onClick={() => router.push('/')}
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-white text-sm font-bold hover:bg-primary-hover shadow-lg transition-all">
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-white text-sm font-bold hover:bg-primary-hover shadow-lg transition-all focus:outline-none focus:ring-4 focus:ring-primary/30">
                     <span className="material-symbols-outlined !text-base">add</span>New Analysis
                 </button>
             </div>
@@ -99,9 +99,9 @@ export default function HistoryPage() {
                     </button>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
                     {analyses.map((a) => (
-                        <div key={a.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:shadow-md hover:-translate-y-0.5 transition-all group">
+                        <div key={a.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 md:p-5 hover:shadow-md hover:-translate-y-0.5 transition-all group">
                             <div className="flex items-start justify-between mb-3">
                                 <div className="bg-primary/10 size-10 rounded-xl flex items-center justify-center">
                                     <span className="material-symbols-outlined !text-lg text-primary">storefront</span>

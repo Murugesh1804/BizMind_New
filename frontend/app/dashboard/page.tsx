@@ -100,15 +100,17 @@ export default function DashboardPage() {
                     {/* Header */}
                     <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                         <div className="space-y-2">
-                            <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-[#2D2D2D]" style={TH}>
+                            <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold tracking-tight text-[#2D2D2D]" style={TH}>
                                 {data.business_name}
                             </h1>
-                            <p className="text-[#6B7280] text-sm flex items-center gap-1.5">
-                                <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>location_on</span>
-                                {data.location}
-                                <span className="mx-1 text-[#D1D5DB]">·</span>
+                            <p className="text-[#6B7280] text-sm flex flex-col sm:flex-row sm:items-center gap-1.5">
+                                <span className="flex items-center gap-1.5">
+                                    <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>location_on</span>
+                                    {data.location}
+                                </span>
+                                <span className="hidden sm:inline text-[#D1D5DB]">·</span>
                                 <span className="capitalize">{data.business_type}</span>
-                                <span className="mx-1 text-[#D1D5DB]">·</span>
+                                <span className="hidden sm:inline text-[#D1D5DB]">·</span>
                                 <span className="capitalize">{data.owner_type === 'new' ? 'New Entrepreneur' : 'Existing Business'}</span>
                             </p>
                             <div className="flex items-center gap-2 pt-1">
@@ -118,14 +120,14 @@ export default function DashboardPage() {
                                 </span>
                             </div>
                         </div>
-                        <div className="flex gap-2 shrink-0">
+                        <div className="flex flex-col sm:flex-row gap-2 shrink-0">
                             <button onClick={() => router.push('/')}
-                                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#E5E5E5] bg-white text-sm font-semibold text-[#2D2D2D] hover:border-[#1d73c9]/40 hover:bg-[#F9F9F8] transition-all">
+                                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#E5E5E5] bg-white text-sm font-semibold text-[#2D2D2D] hover:border-[#1d73c9]/40 hover:bg-[#F9F9F8] transition-all focus:outline-none focus:ring-2 focus:ring-primary/20">
                                 <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>add</span>
                                 New Analysis
                             </button>
                             <Link href="/history"
-                                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#E5E5E5] bg-white text-sm font-semibold text-[#2D2D2D] hover:border-[#1d73c9]/40 hover:bg-[#F9F9F8] transition-all">
+                                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#E5E5E5] bg-white text-sm font-semibold text-[#2D2D2D] hover:border-[#1d73c9]/40 hover:bg-[#F9F9F8] transition-all focus:outline-none focus:ring-2 focus:ring-primary/20">
                                 <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>history</span>
                                 History
                             </Link>

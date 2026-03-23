@@ -14,11 +14,30 @@ const STEPS = [
     { label: "Finalizing success probability...", detail: "Calculating final scores and preparing your report" }
 ];
 
-export default function AnalysisLoader({ businessName, taskId }: { businessName?: string, taskId?: string }) {
+// Fun facts for Phase 4 loading experience
+const FUN_FACTS = [
+    "Did you know? Cafés near offices get 40% more morning traffic.",
+    "Restaurants on corners have 25% higher visibility.",
+    "Shops near gyms see 30% more health-conscious customers.",
+    "Businesses near schools get consistent weekday traffic.",
+    "Salons near metro stations have 35% higher footfall.",
+    "Bookstores near colleges see 50% more student customers.",
+    "Grocery stores near residential areas get evening rush traffic."
+];
+
+interface AnalysisLoaderProps {
+    businessName?: string;
+    taskId?: string;
+    onCancel?: () => void;
+}
+
+export default function AnalysisLoader({ businessName, taskId, onCancel }: AnalysisLoaderProps) {
     const [progress, setProgress] = useState(0);
     const [seconds, setSeconds] = useState(0);
     const [currentStepInfo, setCurrentStepInfo] = useState({ step: 0, status: STEPS[0].label });
     const [visibleStepIndices, setVisibleStepIndices] = useState<number[]>([]);
+    const [funFactIndex, setFunFactIndex] = useState(0);
+    const [estimatedTimeLeft, setEstimatedTimeLeft] = useState(120); // 2 minutes estimate
 
     useEffect(() => {
         const timer = setInterval(() => {
@@ -26,6 +45,24 @@ export default function AnalysisLoader({ businessName, taskId }: { businessName?
         }, 1000);
         return () => clearInterval(timer);
     }, []);
+
+    // Rotate fun facts every 10 seconds
+    useEffect(() => {
+        const factTimer = setInterval(() => {
+            setFunFactIndex(prev => (prev + 1) % FUN_FACTS.length);
+        }, 10000);
+        return () => clearInterval(factTimer);
+    }, []);
+
+    // Calculate estimated time remaining
+    useEffect(() => {
+        if (progress > 0) {
+            const elapsed = seconds;
+            const rate = progress / elapsed; // percent per second
+            const remaining = (100 - progress) / rate;
+            setEstimatedTimeLeft(Math.max(10, Math.round(remaining)));
+        }
+    }, [progress, seconds]);
 
     // REAL-TIME PROGRESS POLLING
     useEffect(() => {
@@ -160,13 +197,38 @@ export default function AnalysisLoader({ businessName, taskId }: { businessName?
                 </div>
 
                 {/* Card Footer */}
-                <footer className="px-8 py-5 bg-slate-50/50 border-t border-slate-100 flex justify-between items-center">
-                    <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest flex items-center">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-2 animate-pulse"></span>
-                        Live Backend Sync
+                <footer className="px-8 py-5 bg-slate-50/50 border-t border-slate-100 space-y-3">
+                    {/* Fun Fact - Phase 4 */}
+                    <div className="flex items-start gap-2 p-3 bg-amber-50 rounded-lg border border-amber-100">
+                        <span className="material-symbols-outlined text-amber-600 text-sm">lightbulb</span>
+                        <p className="text-xs text-amber-800 leading-relaxed">
+                            <span className="font-semibold">Tip:</span> {FUN_FACTS[funFactIndex]}
+                        </p>
                     </div>
-                    <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-                        Groq AI + Google Maps
+                    
+                    <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-3">
+                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest flex items-center">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-2 animate-pulse"></span>
+                                Live Backend Sync
+                            </span>
+                            <span className="text-[10px] text-slate-500">
+                                ~{Math.ceil(estimatedTimeLeft / 10) * 10}s remaining
+                            </span>
+                        </div>
+                        <div className="flex items-center gap-4">
+                            {onCancel && (
+                                <button
+                                    onClick={onCancel}
+                                    className="px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                >
+                                    Cancel Analysis
+                                </button>
+                            )}
+                            <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                                Groq AI + Google Maps
+                            </div>
+                        </div>
                     </div>
                 </footer>
             </div>

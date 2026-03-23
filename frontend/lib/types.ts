@@ -13,6 +13,12 @@ export interface CompetitorData {
     phone?: string;
 }
 
+export interface TopCompetitor {
+    name: string;
+    rating: string | number;
+    distance?: string | number;
+}
+
 export interface PreviewResult {
     preview: boolean;
     competitor_count: number;
@@ -23,7 +29,7 @@ export interface PreviewResult {
     customer_score: number;
     heatmap_data: Array<{ lat: number; lng: number }>;
     ai_opinion: string;
-    top_competitors: Array<{ name: string; rating: string | number; distance?: string | number }>;
+    top_competitors: Array<TopCompetitor>;
 }
 
 export interface FeatureData {
