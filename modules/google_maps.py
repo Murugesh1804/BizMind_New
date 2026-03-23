@@ -6,164 +6,168 @@ It provides geocoding, nearby search, and place details functionality.
 """
 
 import googlemaps
-import os
 from datetime import datetime
+import math
+import os
+import logging
 
+# Configure module-level logger
+logger = logging.getLogger(__name__)
 
 class GoogleMapsClient:
     """
-    Client for Google Maps API integration
+    Client for interacting with Google Maps APIs (Places, Geocoding)
     """
     
-    def __init__(self, api_key=None):
+    def __init__(self, api_key):
         """
         Initialize the Google Maps client
-        
-        Args:
-            api_key (str): Google Maps API key (falls back to GOOGLE_MAP_API env var)
         """
-        self.api_key = api_key or os.getenv('GOOGLE_MAP_API')
-        if not self.api_key:
-            raise ValueError("Google Maps API key is required. Set GOOGLE_MAP_API environment variable.")
+        self.api_key = api_key
+        self.client = None
         
-        self.client = googlemaps.Client(key=self.api_key)
-        print("[Google Maps] Client initialized successfully")
+        if api_key:
+            try:
+                self.client = googlemaps.Client(key=api_key)
+                logger.info("[Google Maps] Client initialized successfully")
+            except Exception as e:
+                logger.error(f"[Google Maps] Initialization failed: {str(e)}")
+        else:
+            logger.warning("[Google Maps] API key not provided. Client will not be functional.")
     
     def geocode(self, location):
         """
-        Convert a location string to coordinates using Google Geocoding API
+        Convert location name to coordinates
         
         Args:
-            location (str): Location string (e.g., "Alandur, Chennai, India")
+            location (str): Location name or address
             
         Returns:
-            dict: {'latitude': float, 'longitude': float} or None if failed
+            dict: Latitude and longitude
         """
-        try:
-            print(f"[Google Maps] Geocoding location: {location}")
+        if not self.client:
+            return None
             
-            # Call Google Geocoding API
+        try:
+            logger.info(f"[Google Maps] Geocoding location: {location}")
             geocode_result = self.client.geocode(location)
             
-            if not geocode_result:
-                print(f"[Google Maps] No results found for: {location}")
+            if geocode_result:
+                location_data = geocode_result[0]['geometry']['location']
+                coords = {
+                    'latitude': location_data['lat'],
+                    'longitude': location_data['lng']
+                }
+                logger.info(f"[Google Maps] Found coordinates: {coords['latitude']}, {coords['longitude']}")
+                return coords
+            else:
+                logger.warning(f"[Google Maps] No results found for: {location}")
                 return None
-            
-            # Extract coordinates from first result
-            location_data = geocode_result[0]['geometry']['location']
-            coords = {
-                'latitude': location_data['lat'],
-                'longitude': location_data['lng']
-            }
-            
-            print(f"[Google Maps] Found coordinates: {coords['latitude']}, {coords['longitude']}")
-            return coords
-            
+                
         except Exception as e:
-            print(f"[Google Maps] Geocoding error: {str(e)}")
+            logger.error(f"[Google Maps] Geocoding error: {str(e)}")
             return None
     
-    def fetch_competitors(self, business_type, location, latitude=None, longitude=None, radius=500, max_results=20):
+    def fetch_competitors(self, business_type, location, latitude=None, longitude=None, radius=1000, max_results=20):
         """
-        Fetch nearby competitors using Google Places API with radius filtering
+        Fetch nearby competitors from Google Places API
         
         Args:
-            business_type (str): Type of business (e.g., "restaurant", "cafe")
-            location (str): Location string (e.g., "Mumbai, India")
-            latitude (float): Optional latitude for precise location
-            longitude (float): Optional longitude for precise location
-            radius (int): Search radius in meters (default: 500m = 0.5km)
-            max_results (int): Maximum number of results to return
+            business_type (str): Type of business (e.g., 'cafe')
+            location (str): Location name (fallback if coordinates not provided)
+            latitude (float): Latitude
+            longitude (float): Longitude
+            radius (int): Search radius in meters
+            max_results (int): Maximum number of results to fetch
             
         Returns:
-            list: List of competitor dictionaries with details
+            list: List of competitor dictionaries
         """
+        if not self.client:
+            return []
+            
         try:
-            # Ensure we have coordinates
-            if not latitude or not longitude:
-                print(f"[Google Maps] No coordinates provided, geocoding: {location}")
+            # Get coordinates if not provided
+            if latitude is None or longitude is None:
+                logger.info(f"[Google Maps] No coordinates provided, geocoding: {location}")
                 coords = self.geocode(location)
                 if coords:
                     latitude = coords['latitude']
                     longitude = coords['longitude']
                 else:
-                    print("[Google Maps] Failed to get coordinates")
+                    logger.error("[Google Maps] Failed to get coordinates")
                     return []
             
-            print(f"[Google Maps] Searching for {business_type} near ({latitude}, {longitude})")
-            print(f"[Google Maps] Radius: {radius}m, Max results: {max_results}")
+            logger.info(f"[Google Maps] Searching for {business_type} near ({latitude}, {longitude})")
+            logger.info(f"[Google Maps] Radius: {radius}m, Max results: {max_results}")
             
-            # Step 1: Nearby Search
-            places = self._search_nearby_places(
-                latitude=latitude,
-                longitude=longitude,
+            # Fetch nearby places
+            places_result = self.client.places_nearby(
+                location=(latitude, longitude),
+                radius=radius,
                 keyword=business_type,
-                radius=radius
+                type=business_type.lower().replace(' ', '_')
             )
             
+            places = places_result.get('results', [])
+            
             if not places:
-                print("[Google Maps] No places found")
+                logger.warning("[Google Maps] No places found")
                 return []
+                
+            logger.info(f"[Google Maps] Found {len(places)} places")
             
-            print(f"[Google Maps] Found {len(places)} places")
+            # Limit results
+            places = places[:max_results]
             
-            # Step 2: Get detailed information for each place
             competitors = []
             
-            for idx, place in enumerate(places[:max_results]):
+            # Fetch details for each place
+            for place in places:
                 try:
-                    place_id = place.get('place_id')
-                    if not place_id:
-                        continue
+                    place_id = place['place_id']
                     
-                    # Get basic info
+                    # Fetch detailed info (including reviews)
+                    details = self.client.place(
+                        place_id=place_id,
+                        fields=['name', 'rating', 'user_ratings_total', 'formatted_address', 
+                               'geometry', 'price_level', 'review', 'types', 'website', 
+                               'formatted_phone_number', 'opening_hours']
+                    ).get('result', {})
+                    
+                    # Calculate distance
+                    dest_lat = details['geometry']['location']['lat']
+                    dest_lng = details['geometry']['location']['lng']
+                    distance = self._calculate_distance(latitude, longitude, dest_lat, dest_lng)
+                    
                     competitor = {
-                        'name': place.get('name', 'Unknown'),
-                        'rating': float(place.get('rating', 0)),
-                        'reviews_count': int(place.get('user_ratings_total', 0)),
-                        'address': place.get('vicinity', ''),
-                        'types': place.get('types', [])
+                        'name': details.get('name', 'Unknown'),
+                        'rating': details.get('rating', 0),
+                        'reviews_count': details.get('user_ratings_total', 0),
+                        'address': details.get('formatted_address', 'N/A'),
+                        'latitude': dest_lat,
+                        'longitude': dest_lng,
+                        'distance': round(distance),
+                        'price_level': details.get('price_level', 0),
+                        'types': details.get('types', []),
+                        'website': details.get('website', ''),
+                        'phone': details.get('formatted_phone_number', ''),
+                        'opening_hours': details.get('opening_hours', {}).get('weekday_text', []),
+                        'reviews': [r.get('text', '') for r in details.get('reviews', [])]
                     }
                     
-                    # Add coordinates
-                    if 'geometry' in place and 'location' in place['geometry']:
-                        loc = place['geometry']['location']
-                        competitor['latitude'] = loc['lat']
-                        competitor['longitude'] = loc['lng']
-                        
-                        # Calculate distance
-                        distance = self._calculate_distance(
-                            latitude, longitude,
-                            loc['lat'], loc['lng']
-                        )
-                        competitor['distance_meters'] = distance
-                    
-                    # Parse price level
-                    competitor['price_level'] = place.get('price_level', 0)
-                    
-                    # Fetch detailed place information including reviews
-                    print(f"[Google Maps] Fetching details for: {competitor['name']}")
-                    details = self._fetch_place_details(place_id)
-                    
-                    if details:
-                        competitor['reviews'] = details.get('reviews', [])
-                        competitor['phone'] = details.get('phone', '')
-                        competitor['website'] = details.get('website', '')
-                        competitor['hours'] = details.get('hours', {})
-                    else:
-                        competitor['reviews'] = []
-                    
+                    logger.info(f"[Google Maps] Fetching details for: {competitor['name']}")
                     competitors.append(competitor)
                     
                 except Exception as e:
-                    print(f"[Google Maps] Error processing place: {str(e)}")
+                    logger.error(f"[Google Maps] Error processing place: {str(e)}")
                     continue
             
-            print(f"[Google Maps] Successfully fetched {len(competitors)} competitors with details")
+            logger.info(f"[Google Maps] Successfully fetched {len(competitors)} competitors with details")
             return competitors
             
         except Exception as e:
-            print(f"[Google Maps] Error in fetch_competitors: {str(e)}")
+            logger.error(f"[Google Maps] Error in fetch_competitors: {str(e)}")
             return []
     
     def _search_nearby_places(self, latitude, longitude, keyword, radius):

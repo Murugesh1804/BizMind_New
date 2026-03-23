@@ -41,13 +41,20 @@ load_dotenv()
 # Configure logging
 import logging
 logging.basicConfig(
-    level=logging.DEBUG if os.getenv('FLASK_DEBUG', '').lower() in ('1', 'true') else logging.WARNING,
+    level=logging.INFO if os.getenv('FLASK_ENV') == 'production' else logging.DEBUG,
     format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
     datefmt='%H:%M:%S'
 )
 
+# Disable noisy logs
+logging.getLogger("urllib3").setLevel(logging.WARNING)
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("transformers").setLevel(logging.ERROR)
+logging.getLogger("werkzeug").setLevel(logging.WARNING) # Silence flask dev server logs in production
+
 # Initialize Flask app
 app = Flask(__name__)
+logger = logging.getLogger(__name__)
 
 # Enable CORS for Next.js frontend
 CORS(app, origins=["http://localhost:5173","https://bizmind.tech"], supports_credentials=True)
@@ -304,7 +311,7 @@ def register():
         }), 201
         
     except Exception as e:
-        print(f"[ERROR] Registration failed: {str(e)}")
+        logger.error(f"[ERROR] Registration failed: {str(e)}")
         return jsonify({
             'error': 'Registration failed',
             'message': 'An unexpected error occurred. Please try again.'
@@ -397,7 +404,7 @@ def get_current_user():
         }), 200
         
     except Exception as e:
-        print(f"[ERROR] Get user failed: {str(e)}")
+        logger.error(f"[ERROR] Get user failed: {str(e)}")
         return jsonify({
             'error': 'Failed to get user info',
             'message': 'An unexpected error occurred. Please try again.'
@@ -482,22 +489,22 @@ def analyze():
         # Step 2: Geocode location if coordinates not provided
         if not latitude or not longitude:
             db.set_analysis_progress(task_id, user_id, 0, "Identifying location coordinates...", 10)
-            print(f"[INFO] No coordinates provided, geocoding location: {location}")
+            logger.info(f"[INFO] No coordinates provided, geocoding location: {location}")
             coords = google_maps_client.geocode(location)
             if coords:
                 latitude = coords['latitude']
                 longitude = coords['longitude']
                 print(f"[INFO] Geocoded to: {latitude}, {longitude}")
             else:
-                print(f"[WARN] Geocoding failed, will search by location name only")
+                logger.warning(f"[WARN] Geocoding failed, will search by location name only")
         
         # Step 3: Fetch competitor data from Google Maps
         db.set_analysis_progress(task_id, user_id, 1, "Scanning nearby competition...", 25)
-        print(f"[INFO] Fetching competitor data for: {business_type} in {location}")
+        logger.info(f"[INFO] Fetching competitor data for: {business_type} in {location}")
         
         # Pass coordinates if available for more precise search
         if latitude and longitude:
-            print(f"[INFO] Using coordinates: {latitude}, {longitude} with {radius}m radius")
+            logger.info(f"[INFO] Using coordinates: {latitude}, {longitude} with {radius}m radius")
             competitors_data = google_maps_client.fetch_competitors(
                 business_type=business_type,
                 location=location,
@@ -519,7 +526,7 @@ def analyze():
             
         # Step 3.5: Scrape real-world contact data for marketing intel
         db.set_analysis_progress(task_id, user_id, 1, "Scraping real-world marketing intel...", 35)
-        print("[INFO] Initiating web scraper for competitor contact details")
+        logger.info("[INFO] Initiating web scraper for competitor contact details")
         scraper = CompetitorScraper()
         competitors_data = scraper.scrape_competitors(competitors_data, location)
         
@@ -531,23 +538,23 @@ def analyze():
         schemes = gov_schemes_api.get_schemes(business_type, location)
         
         # Step 4: Feature engineering - calculate metrics
-        print(f"[INFO] Engineering features from {len(competitors_data)} competitors")
+        logger.info(f"[INFO] Engineering features from {len(competitors_data)} competitors")
         features = feature_engineer.calculate_features(competitors_data, business_type)
         
         # Step 4.5: Fetch customer base data
         db.set_analysis_progress(task_id, user_id, 2, "Analyzing customer demographics...", 45)
-        print("[INFO] Fetching customer base indicators...")
+        logger.info("[INFO] Fetching customer base indicators...")
         customer_base = {}
         if latitude and longitude:
             try:
                 customer_base = fetch_customer_base_data(float(latitude), float(longitude), radius)
-                print(f"[INFO] Customer Score: {customer_base.get('customer_score', 0)}/100")
+                logger.info(f"[INFO] Customer Score: {customer_base.get('customer_score', 0)}/100")
                 print(f"[INFO] Found {customer_base.get('apartments_count', 0)} apartments, "
                       f"{customer_base.get('education_count', 0)} education centers, "
                       f"{customer_base.get('offices_count', 0)} offices, "
                       f"{customer_base.get('transit_count', 0)} transit points")
             except Exception as e:
-                print(f"[WARN] Customer base fetching failed: {str(e)}")
+                logger.warning(f"[WARN] Customer base fetching failed: {str(e)}")
                 # Continue without customer base data
                 customer_base = {
                     "apartments_count": 0,
@@ -558,7 +565,7 @@ def analyze():
                     "heatmap_points": []
                 }
         else:
-            print("[WARN] No coordinates available, skipping customer base analysis")
+            logger.warning("[WARN] No coordinates available, skipping customer base analysis")
             customer_base = {
                 "apartments_count": 0,
                 "education_count": 0,
@@ -570,7 +577,7 @@ def analyze():
         
         # Step 5: Compress review data using LLMLingua (limit to 50 reviews for speed)
         db.set_analysis_progress(task_id, user_id, 3, "Processing customer sentiment...", 58)
-        print("[INFO] Compressing review data with LLMLingua")
+        logger.info("[INFO] Compressing review data with LLMLingua")
         all_reviews = []
         for comp in competitors_data:
             all_reviews.extend(comp.get('reviews', []))
@@ -600,7 +607,7 @@ def analyze():
         # Step 6: Generate AI insights + strategy + marketing in parallel
         from concurrent.futures import ThreadPoolExecutor, as_completed
         db.set_analysis_progress(task_id, user_id, 4, "Generating strategic insights...", 75)
-        print("[INFO] Generating AI insights (parallel: insights + strategy + marketing)")
+        logger.info("[INFO] Generating AI insights (parallel: insights + strategy + marketing)")
         
         with ThreadPoolExecutor(max_workers=3) as executor:
             future_insights = executor.submit(
@@ -631,11 +638,11 @@ def analyze():
             marketing_intel['influencers'] = influencers
             ai_insights['gov_schemes_list'] = schemes
         
-        print("[INFO] All AI insights generated successfully")
+        logger.info("[INFO] All AI insights generated successfully")
         
         # Step 7: Save analysis to database
         db.set_analysis_progress(task_id, user_id, 5, "Finalizing success scores & reports...", 90)
-        print("[INFO] Saving analysis to database")
+        logger.info("[INFO] Saving analysis to database")
         
         # Prepare strategy data (complete AI insights for storage)
         strategy_data = {
@@ -682,7 +689,7 @@ def analyze():
             competitors=competitors_data[:10],
             strategy=strategy_data
         )
-        print(f"[INFO] Analysis saved with ID: {analysis_id}")
+        logger.info(f"[INFO] Analysis saved with ID: {analysis_id}")
         
         # Step 8: Prepare final response (flattened for Next.js dashboard)
         # Fetch it back from DB to ensure all structure logic runs exactly the same
@@ -702,7 +709,7 @@ def analyze():
         # Clear progress on failure
         if 'task_id' in locals():
             db.clear_analysis_progress(task_id)
-        print(f"[ERROR] Analysis failed: {str(e)}")
+        logger.error(f"[ERROR] Analysis failed: {str(e)}")
         return jsonify({
             'error': 'Analysis failed',
             'message': 'Analysis could not be completed. Please try again.'
@@ -748,7 +755,7 @@ def set_launch_date(analysis_id):
                           
         return jsonify({'success': True, 'target_launch_date': launch_date}), 200
     except Exception as e:
-        print(f"[ERROR] set_launch_date failed: {str(e)}")
+        logger.error(f"[ERROR] set_launch_date failed: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
 
 
@@ -828,7 +835,7 @@ def preview():
         }), 200
 
     except Exception as e:
-        print(f"[ERROR] Preview failed: {str(e)}")
+        logger.error(f"[ERROR] Preview failed: {str(e)}")
         return jsonify({'error': 'Preview failed', 'message': str(e)}), 500
 
 
@@ -870,7 +877,7 @@ def get_history():
         }), 200
         
     except Exception as e:
-        print(f"[ERROR] Get history failed: {str(e)}")
+        logger.error(f"[ERROR] Get history failed: {str(e)}")
         return jsonify({
             'error': 'Failed to get history',
             'message': 'An unexpected error occurred. Please try again.'
@@ -896,7 +903,7 @@ def get_analysis(analysis_id):
         }), 200
         
     except Exception as e:
-        print(f"[ERROR] Get analysis failed: {str(e)}")
+        logger.error(f"[ERROR] Get analysis failed: {str(e)}")
         return jsonify({
             'error': 'Failed to get analysis',
             'message': 'An unexpected error occurred. Please try again.'
@@ -922,7 +929,7 @@ def delete_analysis(analysis_id):
         }), 200
         
     except Exception as e:
-        print(f"[ERROR] Delete analysis failed: {str(e)}")
+        logger.error(f"[ERROR] Delete analysis failed: {str(e)}")
         return jsonify({
             'error': 'Failed to delete analysis',
             'message': 'An unexpected error occurred. Please try again.'
@@ -987,7 +994,7 @@ def download_analysis(analysis_id):
             }), 400
         
     except Exception as e:
-        print(f"[ERROR] Download failed: {str(e)}")
+        logger.error(f"[ERROR] Download failed: {str(e)}")
         return jsonify({
             'error': 'Download failed',
             'message': 'An unexpected error occurred. Please try again.'
@@ -1090,7 +1097,7 @@ def copilot_chat():
         return jsonify({'response': response_text}), 200
 
     except Exception as e:
-        print(f"[ERROR] Copilot chat failed: {str(e)}")
+        logger.error(f"[ERROR] Copilot chat failed: {str(e)}")
         return jsonify({'error': 'Copilot failed', 'message': str(e)}), 500
 
 # ============================================================================
@@ -1191,7 +1198,7 @@ def simulate_scenario():
         return jsonify({'scenario_result': result}), 200
 
     except Exception as e:
-        print(f"[ERROR] Scenario simulation failed: {str(e)}")
+        logger.error(f"[ERROR] Scenario simulation failed: {str(e)}")
         return jsonify({'error': 'Scenario simulation failed', 'message': str(e)}), 500
 
 
@@ -1278,7 +1285,7 @@ def compare_locations():
         }), 200
 
     except Exception as e:
-        print(f"[ERROR] Location comparison failed: {str(e)}")
+        logger.error(f"[ERROR] Location comparison failed: {str(e)}")
         return jsonify({'error': 'Comparison failed', 'message': str(e)}), 500
 
 
@@ -1374,7 +1381,7 @@ def get_business_metrics(analysis_id):
         return jsonify({'metrics': metrics, 'trend': trend}), 200
 
     except Exception as e:
-        print(f"[ERROR] Get business metrics failed: {str(e)}")
+        logger.error(f"[ERROR] Get business metrics failed: {str(e)}")
         return jsonify({'error': 'Failed to get metrics', 'message': str(e)}), 500
 
 
@@ -1447,7 +1454,7 @@ def track_market(analysis_id):
         }), 200
 
     except Exception as e:
-        print(f"[ERROR] Market tracking failed: {str(e)}")
+        logger.error(f"[ERROR] Market tracking failed: {str(e)}")
         return jsonify({'error': 'Market tracking failed', 'message': str(e)}), 500
 
 
@@ -1492,7 +1499,7 @@ def submit_feedback():
         return jsonify({'message': 'Feedback saved. Thank you!', 'id': feedback_id}), 201
 
     except Exception as e:
-        print(f"[ERROR] Feedback submit failed: {str(e)}")
+        logger.error(f"[ERROR] Feedback submit failed: {str(e)}")
         return jsonify({'error': 'Failed to save feedback', 'message': str(e)}), 500
 
 
@@ -1549,7 +1556,7 @@ def get_financial_analysis():
         return jsonify(financial_analysis), 200
 
     except Exception as e:
-        print(f"[ERROR] Financial analysis failed: {str(e)}")
+        logger.error(f"[ERROR] Financial analysis failed: {str(e)}")
         return jsonify({'error': 'Financial analysis failed', 'message': str(e)}), 500
 
 
@@ -1571,7 +1578,7 @@ def get_gov_schemes():
         return jsonify(schemes), 200
 
     except Exception as e:
-        print(f"[ERROR] Failed to get government schemes: {str(e)}")
+        logger.error(f"[ERROR] Failed to get government schemes: {str(e)}")
         return jsonify({'error': 'Failed to get government schemes', 'message': str(e)}), 500
 
 
@@ -1582,12 +1589,12 @@ if __name__ == '__main__':
     missing_vars = [var for var in required_vars if not os.getenv(var)]
     
     if missing_vars:
-        print(f"[ERROR] Missing required environment variables: {', '.join(missing_vars)}")
-        print("[INFO] Please create a .env file with your API keys")
-        print("[INFO] See .env.example for template")
+        logger.error(f"[ERROR] Missing required environment variables: {', '.join(missing_vars)}")
+        logger.info("[INFO] Please create a .env file with your API keys")
+        logger.info("[INFO] See .env.example for template")
         exit(1)
     
-    print("[INFO] Starting BizMind Flask Application")
-    print("[INFO] Access the application at: http://localhost:5000")
+    logger.info("[INFO] Starting BizMind Flask Application")
+    logger.info("[INFO] Access the application at: http://localhost:5000")
     app.run(debug=True, host='0.0.0.0', port=5000)
 

@@ -23,7 +23,7 @@ _model = None
 
 def get_model():
     """
-    Get or create the global embedding model instance (Lazy Load).
+    Get or create the global embedding model instance.
     Includes CPU and memory optimizations.
     """
     global _model
@@ -35,12 +35,16 @@ def get_model():
         # Disable gradients & training features
         torch.set_grad_enabled(False)
         
-        logger.info("[Model] Loading embedding model (Lazy)...")
+        logger.info("[Model] Loading embedding model...")
         _model = SentenceTransformer(
             "paraphrase-MiniLM-L3-v2",  # Ultra-small model
             device="cpu"
         )
     return _model
+
+# Pre-load model at module level for production readiness
+# This avoids lazy-loading latency on the first request
+get_model()
 
 class LazyHuggingFaceEmbeddings(Embeddings):
     """

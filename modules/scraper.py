@@ -8,8 +8,12 @@ import pandas as pd
 from apify_client import ApifyClient
 from googleapiclient.discovery import build
 from dotenv import load_dotenv
+import logging
 
 load_dotenv()
+
+# Configure module-level logger
+logger = logging.getLogger(__name__)
 
 class CompetitorScraper:
     """
@@ -101,7 +105,7 @@ class CompetitorScraper:
 
             return intel
         except Exception as e:
-            print(f"[Scraper] Failed for {name}: {str(e)}")
+            logger.error(f"[Scraper] Failed for {name}: {str(e)}")
             return intel
 
     def scrape_influencers(self, business_type, location):
@@ -139,7 +143,7 @@ class CompetitorScraper:
                             youtube_channels.append(channel)
 
         except Exception as e:
-            print(f"[Scraper] Web searching influencers failed: {str(e)}")
+            logger.error(f"[Scraper] Web searching influencers failed: {str(e)}")
 
         # Limit to requested 2 each
         insta_handles = insta_handles[:2]
@@ -153,7 +157,7 @@ class CompetitorScraper:
                 insta_data = self._run_apify_instagram(insta_handles)
                 all_influencers.extend(insta_data)
             except Exception as e:
-                print(f"[Scraper] Apify Instagram failed: {str(e)}")
+                logger.error(f"[Scraper] Apify Instagram failed: {str(e)}")
         
         # Fallback if Apify not available or fails
         if not any(i['platform'] == 'Instagram' for i in all_influencers):
@@ -172,7 +176,7 @@ class CompetitorScraper:
                 youtube_data = self._run_youtube_api(youtube_channels)
                 all_influencers.extend(youtube_data)
             except Exception as e:
-                print(f"[Scraper] YouTube API failed: {str(e)}")
+                logger.error(f"[Scraper] YouTube API failed: {str(e)}")
 
         # Fallback if YouTube API not available
         if not any(i['platform'] == 'YouTube' for i in all_influencers):

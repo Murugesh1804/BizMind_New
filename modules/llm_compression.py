@@ -7,13 +7,43 @@ to reduce token count before sending to LLM APIs.
 LLMLingua can reduce tokens by 50-70% while preserving key information.
 """
 
+import logging
+
+# Configure module-level logger
+logger = logging.getLogger(__name__)
+
 try:
     from llmlingua import PromptCompressor
     LLMLINGUA_AVAILABLE = True
 except ImportError:
-    print("[WARNING] LLMLingua not available. Install with: pip install llmlingua")
+    logger.warning("LLMLingua not available. Install with: pip install llmlingua")
     LLMLINGUA_AVAILABLE = False
 
+# Global compressor singleton
+_compressor = None
+
+def get_compressor():
+    """
+    Get or create the global LLMLingua compressor instance (Lazy Load).
+    """
+    global _compressor
+    if _compressor is None and LLMLINGUA_AVAILABLE:
+        try:
+            logger.info("[LLMLingua] Initializing compressor (this may take a moment)...")
+            _compressor = PromptCompressor(
+                model_name="microsoft/llmlingua-2-bert-base-multilingual-cased-meetingbank",
+                use_llmlingua2=True,
+                device_map="cpu"
+            )
+            logger.info("[LLMLingua] Compressor initialized successfully")
+        except Exception as e:
+            logger.error(f"[LLMLingua] Failed to initialize: {str(e)}")
+            _compressor = None
+    return _compressor
+
+# Pre-load compressor at module level for production readiness
+# This avoids lazy-loading latency on the first request
+get_compressor()
 
 class LLMLinguaCompressor:
     """
@@ -22,26 +52,9 @@ class LLMLinguaCompressor:
     
     def __init__(self):
         """
-        Initialize the LLMLingua compressor
+        Initialize the LLMLingua compressor (Lazy-loaded at module level)
         """
-        self.compressor = None
-        
-        if LLMLINGUA_AVAILABLE:
-            try:
-                print("[LLMLingua] Initializing compressor (this may take a moment)...")
-                # Initialize with small model for faster loading
-                self.compressor = PromptCompressor(
-                    model_name="microsoft/llmlingua-2-bert-base-multilingual-cased-meetingbank",
-                    use_llmlingua2=True,
-                    device_map="cpu"
-                )
-                print("[LLMLingua] Compressor initialized successfully")
-            except Exception as e:
-                print(f"[LLMLingua] Failed to initialize: {str(e)}")
-                print("[LLMLingua] Falling back to simple compression")
-                self.compressor = None
-        else:
-            print("[LLMLingua] Using fallback compression (install llmlingua for better results)")
+        pass
     
     def compress_reviews(self, reviews, target_ratio=0.5):
         """
@@ -64,7 +77,8 @@ class LLMLinguaCompressor:
             return ""
         
         # Use LLMLingua if available, otherwise use simple compression
-        if self.compressor:
+        compressor = get_compressor()
+        if compressor:
             return self._compress_with_llmlingua(combined_text, target_ratio)
         else:
             return self._simple_compression(combined_text, target_ratio)
@@ -80,8 +94,9 @@ class LLMLinguaCompressor:
         Returns:
             str: Compressed text
         """
+        compressor = get_compressor()
         try:
-            print(f"[LLMLingua] Compressing {len(text)} characters...")
+            logger.info(f"[LLMLingua] Compressing {len(text)} characters...")
             
             # Split text into chunks to avoid exceeding model's max sequence length (512 tokens)
             # We use ~250 words per chunk to be safe (roughly 350-400 tokens)
@@ -93,7 +108,7 @@ class LLMLinguaCompressor:
                 chunk = ' '.join(words[i:i + chunk_size])
                 chunks.append(chunk)
             
-            print(f"[LLMLingua] Split into {len(chunks)} chunks for processing")
+            logger.info(f"[LLMLingua] Split into {len(chunks)} chunks for processing")
             
             # Compress each chunk separately
             compressed_chunks = []
@@ -102,10 +117,13 @@ class LLMLinguaCompressor:
             
             for idx, chunk in enumerate(chunks):
                 try:
-                    compressed_result = self.compressor.compress_prompt(
-                        chunk,
-                        rate=target_ratio,
-                        force_tokens=['\n', '.', '!', '?', ',']  # Preserve important punctuation
+                    compressed_result = compressor.compress_prompt(
+                        [chunk],
+                        instruction="",
+                        question="",
+                        target_token=int(len(chunk.split()) * target_ratio),
+                        rank_method="longllmlingua",
+                        iterative_size=200
                     )
                     
                     compressed_text = compressed_result['compressed_prompt']
@@ -116,10 +134,10 @@ class LLMLinguaCompressor:
                     total_original_tokens += original_tokens
                     total_compressed_tokens += compressed_tokens
                     
-                    print(f"[LLMLingua] Chunk {idx + 1}/{len(chunks)}: {original_tokens} → {compressed_tokens} tokens")
+                    logger.info(f"[LLMLingua] Chunk {idx + 1}/{len(chunks)}: {original_tokens} → {compressed_tokens} tokens")
                     
                 except Exception as chunk_error:
-                    print(f"[LLMLingua] Chunk {idx + 1} failed: {str(chunk_error)}, using original")
+                    logger.warning(f"[LLMLingua] Chunk {idx + 1} failed: {str(chunk_error)}, using original")
                     compressed_chunks.append(chunk)
                     total_original_tokens += len(chunk.split())
                     total_compressed_tokens += len(chunk.split())
@@ -129,13 +147,13 @@ class LLMLinguaCompressor:
             
             reduction = ((total_original_tokens - total_compressed_tokens) / total_original_tokens) * 100 if total_original_tokens > 0 else 0
             
-            print(f"[LLMLingua] Total Compressed: {total_original_tokens} → {total_compressed_tokens} tokens ({reduction:.1f}% reduction)")
+            logger.info(f"[LLMLingua] Total Compressed: {total_original_tokens} → {total_compressed_tokens} tokens ({reduction:.1f}% reduction)")
             
             return final_compressed
             
         except Exception as e:
-            print(f"[LLMLingua] Compression failed: {str(e)}")
-            print("[LLMLingua] Falling back to simple compression")
+            logger.error(f"[LLMLingua] Compression failed: {str(e)}")
+            logger.warning("[LLMLingua] Falling back to simple compression")
             return self._simple_compression(text, target_ratio)
     
     def _simple_compression(self, text, target_ratio):
@@ -158,7 +176,7 @@ class LLMLinguaCompressor:
         # Take first N sentences (simple but effective)
         compressed = '. '.join(sentences[:target_count])
         
-        print(f"[Compression] Simple compression: {len(sentences)} → {target_count} sentences")
+        logger.info(f"[Compression] Simple compression: {len(sentences)} → {target_count} sentences")
         
         return compressed
     
@@ -173,7 +191,8 @@ class LLMLinguaCompressor:
         Returns:
             str: Compressed prompt
         """
-        if self.compressor:
+        compressor = get_compressor()
+        if compressor:
             return self._compress_with_llmlingua(prompt, target_ratio)
         else:
             # For prompts, we don't compress as aggressively

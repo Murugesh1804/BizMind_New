@@ -12,6 +12,10 @@ import urllib.parse
 import requests
 from bs4 import BeautifulSoup
 import re
+import logging
+
+# Configure module-level logger
+logger = logging.getLogger(__name__)
 
 class GovSchemes:
     """
@@ -26,54 +30,49 @@ class GovSchemes:
 
     def get_schemes(self, business_type, location):
         """
-        Get a list of applicable government schemes by scraping live data.
+        Fetch relevant schemes by searching official portals and matching content.
         """
         schemes = []
-        
-        # 1. Base default fallback schemes (always highly relevant for Indian MSMEs)
-        schemes.append({
-            'name': 'Mudra Loan (PMMY)',
-            'description': 'Collateral-free loans up to ₹10 lakh for non-corporate, non-farm small/micro enterprises. Ideal for quick startup capital.',
-            'url': 'https://www.mudra.org.in/'
-        })
-
-        if 'food' in business_type.lower() or 'restaurant' in business_type.lower() or 'cafe' in business_type.lower():
-            schemes.append({
-                'name': 'PMFME Scheme',
-                'description': 'Up to ₹10 lakh subsidy for micro food processing enterprises. Covers restaurants and packaged food startups.',
-                'url': 'https://pmfme.mofpi.gov.in/'
-            })
-
-        # 2. Live Scraper for State/Sector specific schemes
-        search_query = f"{business_type} startup MSME subsidy scheme in {location} site:gov.in"
-        url = f"https://www.google.com/search?q={urllib.parse.quote(search_query)}"
-        
         try:
-            response = requests.get(url, headers=self.headers, timeout=5)
-            if response.status_code == 200:
-                soup = BeautifulSoup(response.text, 'html.parser')
+            # Step 1: Search relevant keywords on MyScheme / MSME portals
+            query = f"{business_type} business schemes india msme"
+            search_url = f"https://www.google.com/search?q={urllib.parse.quote(query)}+site:.gov.in"
+            
+            response = requests.get(search_url, headers=self.headers, timeout=8)
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            # Simplified parsing of search results
+            for result in soup.find_all('div', class_='g'):
+                title_tag = result.find('h3')
+                link_tag = result.find('a')
+                snippet_tag = result.find('div', class_='VwiC3b')
                 
-                # Find organic search result links
-                for g in soup.find_all('div', class_='g')[:3]:  # Top 3 results
-                    a_tag = g.find('a', href=True)
-                    if a_tag:
-                        href = a_tag['href']
-                        if href.startswith('/url?q='):
-                            href = urllib.parse.unquote(href.split('/url?q=')[1].split('&sa=')[0])
-                            
-                        # Only accept gov sites
-                        if '.gov.in' in href or '.nic.in' in href:
-                            title_tag = g.find('h3')
-                            if title_tag:
-                                title = title_tag.get_text()
-                                # Prevent duplicates
-                                if title not in [s['name'] for s in schemes]:
-                                    schemes.append({
-                                        'name': title.strip(),
-                                        'description': f"State/Central scheme applicable for {business_type} in {location}.",
-                                        'url': href
-                                    })
+                if title_tag and link_tag:
+                    title = title_tag.get_text()
+                    link = link_tag.get('href')
+                    description = snippet_tag.get_text() if snippet_tag else "Government initiative for small businesses."
+                    
+                    # Basic filtering for actual schemes
+                    if any(kw in title.lower() or kw in description.lower() for kw in ["scheme", "loan", "subsidy", "grant", "yojana"]):
+                        schemes.append({
+                            "name": title.replace(" - MyScheme", "").replace(" | MSME", ""),
+                            "description": description[:200] + "...",
+                            "url": link
+                        })
+            
+            # Step 2: Add high-probability static fallbacks if needed
+            if len(schemes) < 2:
+                schemes.append({
+                    "name": "Pradhan Mantri Mudra Yojana (PMMY)",
+                    "description": "Collateral-free loans up to ₹10 Lakh for small business units.",
+                    "url": "https://www.mudra.org.in/"
+                })
+                schemes.append({
+                    "name": "Credit Guarantee Fund Trust (CGTMSE)",
+                    "description": "Collateral-free credit facility to the new and existing micro and small enterprises.",
+                    "url": "https://www.cgtmse.in/"
+                })
         except Exception as e:
-            print(f"[GovSchemes] Scraping failed: {str(e)}")
+            logger.error(f"[GovSchemes] Scraping failed: {str(e)}")
 
         return schemes[:4] # Return top 4 distinct schemes
